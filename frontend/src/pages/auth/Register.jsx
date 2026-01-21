@@ -39,7 +39,7 @@ export default function Register() {
         className="bg-white p-8 rounded-xl w-[400px]"
       >
         <h2 className="text-2xl font-bold text-center mb-6">
-          Create Customer Account
+          Create Account
         </h2>
 
         <input
