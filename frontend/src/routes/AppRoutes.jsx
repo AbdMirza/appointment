@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import ProtectedRoute from "./ProtectedRoute";
 
 // Public
 import Home from "../pages/Home";
@@ -12,6 +13,7 @@ import AdminDashboard from "../pages/admin/Dashboard";
 import Appointments from "../pages/admin/Appointments";
 import Services from "../pages/admin/Services";
 import Staff from "../pages/admin/Staff";
+import BusinessProfile from "../pages/admin/BusinessProfile";
 
 // Staff
 import StaffDashboard from "../pages/staff/StaffDashboard";
@@ -32,19 +34,93 @@ const AppRoutes = () => {
         <Route path="/register" element={<Register />} />
 
         {/* ========== ADMIN ========== */}
-        <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/appointments" element={<Appointments />} />
-        <Route path="/admin/services" element={<Services />} />
-        <Route path="/admin/staff" element={<Staff />} />
+        <Route
+          path="/admin"
+          element={<Navigate to="/admin/dashboard" />}
+        />
+
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/appointments"
+          element={
+            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
+              <Appointments />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/services"
+          element={
+            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
+              <Services />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/staff"
+          element={
+            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
+              <Staff />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/business-profile"
+          element={
+            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
+              <BusinessProfile />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ========== STAFF ========== */}
-        <Route path="/staff/dashboard" element={<StaffDashboard />} />
+        <Route
+          path="/staff/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["STAFF"]}>
+              <StaffDashboard />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ========== CUSTOMER ========== */}
-        <Route path="/customer/home" element={<CustomerHome />} />
-        <Route path="/customer/book" element={<Book />} />
-        <Route path="/customer/my-bookings" element={<MyBookings />} />
+        <Route
+          path="/customer/home"
+          element={
+            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
+              <CustomerHome />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/customer/book"
+          element={
+            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
+              <Book />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/customer/my-bookings"
+          element={
+            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
+              <MyBookings />
+            </ProtectedRoute>
+          }
+        />
 
         {/* ========== FALLBACK ========== */}
         <Route path="*" element={<Navigate to="/" />} />

@@ -11,6 +11,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Call backend login API
     try {
       const res = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
@@ -18,6 +19,7 @@ const Login = () => {
         body: JSON.stringify({ email, password }),
       });
 
+      // backend se response aayega
       const data = await res.json();
 
       if (!res.ok) {
@@ -25,13 +27,26 @@ const Login = () => {
         return;
       }
 
-      login(data.user, data.token);
+      // Gets data from backend and send to AuthContext (now with both tokens)
+      login(data.user, data.accessToken, data.refreshToken);
 
-      if (data.user.role === "admin") navigate("/admin/dashboard");
-      else if (data.user.role === "staff") navigate("/staff/dashboard");
-      else navigate("/customer/home");
+      //  Role based routes
+      switch (data.user.role) {
+        case "BUSINESS_ADMIN":
+          navigate("/admin/dashboard");
+          break;
+        case "STAFF":
+          navigate("/staff/dashboard");
+          break;
+        case "CUSTOMER":
+          navigate("/customer/home");
+          break;
+        default:
+          navigate("/login");
+      }
 
-    } catch {
+    } catch (err) {
+      console.error("LOGIN ERROR:", err);
       alert("Server error");
     }
   };

@@ -1,7 +1,19 @@
+import { useAuth } from "../../context/AuthContext";
+
 const StaffDashboard = () => {
+  const { logout } = useAuth();
+
   return (
     <div className="min-h-screen bg-blue-100 p-6">
-      <h1 className="text-3xl font-bold mb-6">Staff Dashboard</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Staff Dashboard</h1>
+        <button
+          onClick={logout}
+          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold shadow transition"
+        >
+          Logout
+        </button>
+      </div>
 
       <div className="grid md:grid-cols-3 gap-6 ">
         <div className="bg-white p-5 rounded-xl shadow">

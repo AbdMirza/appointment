@@ -1,6 +1,25 @@
+import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+
 const MyBookings = () => {
+  const { logout } = useAuth();
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-100 to-indigo-100 flex flex-col items-center p-6">
+
+      <div className="w-full max-w-4xl flex justify-between mb-10">
+        <Link
+          to="/customer/home"
+          className="bg-white text-blue-600 px-5 py-2 rounded-xl font-bold shadow hover:bg-blue-50 transition"
+        >
+          ← Back
+        </Link>
+        <button
+          onClick={logout}
+          className="bg-white text-red-600 px-5 py-2 rounded-xl font-bold shadow hover:bg-red-50 transition"
+        >
+          Logout
+        </button>
+      </div>
 
       <h1 className="text-3xl sm:text-4xl font-extrabold mb-8 text-gray-800 text-center">
         My Bookings
