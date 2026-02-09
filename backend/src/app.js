@@ -25,11 +25,10 @@ app.get("/health", (req, res) => {
   res.json({ Status: "HEllo", timestamp: new Date() });
 });
 
-// Mount V1 API
+// Mount all API
 app.use("/api", router);
 
-// access prisma example in routes if needed via req or import
-// app.use((req, res, next) => { req.prisma = prisma; next(); });
+
 
 // Global Error Handler
 app.use(errorHandler);

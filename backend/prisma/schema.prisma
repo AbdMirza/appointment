@@ -28,17 +28,25 @@ model Business {
   timezone String
 
   users     User[]
+  services  Service[]
   createdAt DateTime @default(now())
 }
 
 model Service {
-  id        String    @id @default(uuid())
-  name      String
-  duration  Int
-  price     Float
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  bookings  Booking[]
+  id               String    @id @default(uuid())
+  name             String
+  description      String?
+  duration         Int
+  price            Float     @default(0)
+  bufferTimeBefore Int       @default(0)
+  bufferTimeAfter  Int       @default(0)
+  isActive         Boolean   @default(true)
+  businessId       String
+  business         Business  @relation(fields: [businessId], references: [id])
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  bookings         Booking[]
 }
 
 model Booking {

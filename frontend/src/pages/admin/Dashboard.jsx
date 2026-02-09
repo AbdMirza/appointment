@@ -89,7 +89,7 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Stats Grid */}
+        {/* Stats Grid
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition">
             <div className="flex items-center justify-between">
@@ -146,7 +146,7 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
