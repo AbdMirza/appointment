@@ -1,18 +1,19 @@
 // const express = require('express');
 // const router = express.Router();
-
-// // ✅ Correct relative imports
 // const { authenticateToken } = require('../../middleware/auth');
 // const { authorizeRoles } = require('../../middleware/role');
+// const appointmentController = require('./appointmentController');
 
-// // Customer books appointment
-// router.post('/book', authenticateToken, authorizeRoles('customer'), (req, res) => {
-//     res.json({ message: `Booking created by ${req.user.username}` });
-// });
+// // Customer: Book an appointment
+// router.post('/book', authenticateToken, authorizeRoles('CUSTOMER'), appointmentController.createBooking);
 
-// // Admin/Staff can view all appointments
-// router.get('/all', authenticateToken, authorizeRoles('admin', 'staff'), (req, res) => {
-//     res.json({ message: "All appointments visible to admin and staff" });
-// });
+// // Customer: View my bookings
+// router.get('/my-bookings', authenticateToken, authorizeRoles('CUSTOMER'), appointmentController.getCustomerBookings);
+
+// // Admin/Staff: View all business appointments
+// router.get('/business', authenticateToken, authorizeRoles('BUSINESS_ADMIN', 'STAFF'), appointmentController.getBusinessBookings);
+
+// // Admin/Staff: Update status
+// router.patch('/:id/status', authenticateToken, authorizeRoles('BUSINESS_ADMIN', 'STAFF'), appointmentController.updateBookingStatus);
 
 // module.exports = router;

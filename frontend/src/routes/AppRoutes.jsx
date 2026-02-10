@@ -20,6 +20,7 @@ import StaffDashboard from "../pages/staff/StaffDashboard";
 
 // Customer
 import CustomerHome from "../pages/customer/Home";
+import Businesses from "../pages/customer/Businesses";
 import Book from "../pages/customer/Book";
 import MyBookings from "../pages/customer/MyBookings";
 
@@ -100,6 +101,15 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["CUSTOMER"]}>
               <CustomerHome />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/customer/businesses"
+          element={
+            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
+              <Businesses />
             </ProtectedRoute>
           }
         />

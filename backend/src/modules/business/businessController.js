@@ -32,3 +32,10 @@ exports.updateProfile = asyncHandler(async (req, res) => {
         business: updatedBusiness
     });
 });
+// Get all businesses (Public discovery)
+exports.getBusinesses = asyncHandler(async (req, res) => {
+    const businesses = await prisma.business.findMany({
+        orderBy: { name: "asc" }
+    });
+    res.json(businesses);
+});
