@@ -37,7 +37,6 @@ const Services = () => {
       setLoading(true);
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
-      if (filterStatus !== "all") params.append("status", filterStatus);
 
       const res = await fetch(`${API_URL}/services?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -60,7 +59,7 @@ const Services = () => {
     if (token) {
       fetchServices();
     }
-  }, [token, searchQuery, filterStatus]);
+  }, [token, searchQuery]); // Removed filterStatus to prevent unnecessary refetching
 
   // Open modal for creating new service
   const handleAddNew = () => {
@@ -132,7 +131,7 @@ const Services = () => {
       name: formData.name,
       description: formData.description,
       duration: finalDuration,
-      price: parseFloat(formData.price) || 0,
+      price: formData.price || "0",
       bufferTimeBefore: parseInt(formData.bufferTimeBefore) || 0,
       bufferTimeAfter: parseInt(formData.bufferTimeAfter) || 0,
       isActive: formData.isActive,
@@ -163,8 +162,15 @@ const Services = () => {
       }
 
       if (res.ok) {
+        const savedService = await res.json();
+        if (editingService) {
+          // Update existing service in list
+          setServices(services.map(s => s.id === editingService.id ? savedService : s));
+        } else {
+          // Add new service to list directly
+          setServices([...services, savedService]);
+        }
         setShowModal(false);
-        fetchServices(); // Refresh the list
       } else {
         const data = await res.json();
         alert(data.message || "Failed to save service");
@@ -218,6 +224,13 @@ const Services = () => {
   // Count active/inactive for filter buttons
   const activeCount = services.filter((s) => s.isActive).length;
   const inactiveCount = services.filter((s) => !s.isActive).length;
+
+  // Filter services for display
+  const filteredServices = services.filter((service) => {
+    if (filterStatus === "active") return service.isActive;
+    if (filterStatus === "inactive") return !service.isActive;
+    return true;
+  });
 
   return (
     <div className="flex bg-slate-100 min-h-screen">
@@ -285,8 +298,8 @@ const Services = () => {
               <button
                 onClick={() => setFilterStatus("all")}
                 className={`px-4 py-2 rounded-lg font-medium transition ${filterStatus === "all"
-                    ? "bg-slate-800 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-slate-800 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
               >
                 All ({services.length})
@@ -294,8 +307,8 @@ const Services = () => {
               <button
                 onClick={() => setFilterStatus("active")}
                 className={`px-4 py-2 rounded-lg font-medium transition ${filterStatus === "active"
-                    ? "bg-green-600 text-white"
-                    : "bg-green-50 text-green-700 hover:bg-green-100"
+                  ? "bg-green-600 text-white"
+                  : "bg-green-50 text-green-700 hover:bg-green-100"
                   }`}
               >
                 Active ({activeCount})
@@ -303,8 +316,8 @@ const Services = () => {
               <button
                 onClick={() => setFilterStatus("inactive")}
                 className={`px-4 py-2 rounded-lg font-medium transition ${filterStatus === "inactive"
-                    ? "bg-slate-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-slate-600 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
               >
                 Inactive ({inactiveCount})
@@ -321,12 +334,12 @@ const Services = () => {
         ) : (
           /* Services Grid */
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {services.map((service) => (
+            {filteredServices.map((service) => (
               <div
                 key={service.id}
                 className={`bg-white rounded-2xl shadow-sm border-2 transition-all hover:shadow-lg ${service.isActive
-                    ? "border-slate-200 hover:border-blue-300"
-                    : "border-slate-200 opacity-75"
+                  ? "border-slate-200 hover:border-blue-300"
+                  : "border-slate-200 opacity-75"
                   }`}
               >
                 {/* Card Header */}
@@ -338,8 +351,8 @@ const Services = () => {
                       </h3>
                       <span
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${service.isActive
-                            ? "bg-green-100 text-green-700"
-                            : "bg-slate-100 text-slate-500"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-slate-100 text-slate-500"
                           }`}
                       >
                         <span
@@ -613,9 +626,9 @@ const Services = () => {
                           })
                         }
                         className={`px-4 py-2 rounded-lg font-medium transition ${!formData.useCustomDuration &&
-                            formData.duration === preset
-                            ? "bg-blue-600 text-white"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          formData.duration === preset
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
                       >
                         {formatDuration(preset)}

@@ -1,25 +1,27 @@
 const prisma = require("../../utils/prisma");
-const asyncHandler = require("express-async-handler");
+const { catchAsync, validateRequired } = require("../../utils/controllerHelpers");
+const { successResponse, notFoundResponse, validationErrorResponse } = require("../../utils/responseHelpers");
 
 // Get business profile for logged-in admin
-exports.getProfile = asyncHandler(async (req, res) => {
+exports.getProfile = catchAsync(async (req, res) => {
     const business = await prisma.business.findUnique({
         where: { id: req.user.businessId }
     });
 
     if (!business) {
-        return res.status(404).json({ message: "Business not found" });
+        return notFoundResponse(res, "Business");
     }
 
-    res.json(business);
+    return successResponse(res, business);
 });
 
 // Update business profile
-exports.updateProfile = asyncHandler(async (req, res) => {
+exports.updateProfile = catchAsync(async (req, res) => {
     const { name, address, contact, timezone } = req.body;
 
-    if (!name || !address || !contact || !timezone) {
-        return res.status(400).json({ message: "All fields are required" });
+    const validation = validateRequired(['name', 'address', 'contact', 'timezone'], req.body);
+    if (!validation.isValid) {
+        return validationErrorResponse(res, validation.error);
     }
 
     const updatedBusiness = await prisma.business.update({
@@ -27,15 +29,14 @@ exports.updateProfile = asyncHandler(async (req, res) => {
         data: { name, address, contact, timezone }
     });
 
-    res.json({
-        message: "Business profile updated successfully",
-        business: updatedBusiness
-    });
+    return successResponse(res, { business: updatedBusiness }, "Business profile updated successfully");
 });
+
 // Get all businesses (Public discovery)
-exports.getBusinesses = asyncHandler(async (req, res) => {
+exports.getBusinesses = catchAsync(async (req, res) => {
     const businesses = await prisma.business.findMany({
         orderBy: { name: "asc" }
     });
-    res.json(businesses);
+
+    return successResponse(res, businesses);
 });

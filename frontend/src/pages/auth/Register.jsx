@@ -28,11 +28,26 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Filter payload based on role: only include business fields if BUSINESS_ADMIN
+    const payload = {
+      name: form.name,
+      email: form.email,
+      password: form.password,
+      role: form.role,
+    };
+
+    if (form.role === "BUSINESS_ADMIN") {
+      payload.businessName = form.businessName;
+      payload.businessAddress = form.businessAddress;
+      payload.businessContact = form.businessContact;
+      payload.businessTimezone = form.businessTimezone;
+    }
+
     try {
       const res = await fetch("http://localhost:5000/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -191,4 +206,3 @@ export default function Register() {
     </div>
   );
 }
- 

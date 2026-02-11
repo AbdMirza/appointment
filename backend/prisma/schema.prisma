@@ -15,9 +15,14 @@ model User {
   role          Role
   businessId    String?
   business      Business?      @relation(fields: [businessId], references: [id])
-  bookings      Booking[]
+  bookings      Booking[]      @relation("CustomerBookings")
   refreshTokens RefreshToken[]
+  deletedAt     DateTime?      // Soft delete timestamp
   createdAt     DateTime       @default(now())
+
+  // Staff relations
+  acceptedBookings Booking[]      @relation("StaffAcceptance")
+  notifications    Notification[]
 }
 
 model Business {
@@ -27,9 +32,10 @@ model Business {
   contact  String
   timezone String
 
-  users     User[]
-  services  Service[]
-  createdAt DateTime @default(now())
+  users         User[]
+  services      Service[]
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
 }
 
 model Service {
@@ -37,7 +43,7 @@ model Service {
   name             String
   description      String?
   duration         Int
-  price            Float     @default(0)
+  price            Decimal   @default(0) @db.Decimal(10, 2)
   bufferTimeBefore Int       @default(0)
   bufferTimeAfter  Int       @default(0)
   isActive         Boolean   @default(true)
@@ -50,16 +56,34 @@ model Service {
 }
 
 model Booking {
-  id        String   @id @default(uuid())
-  startTime DateTime
-  endTime   DateTime
-  status    String   @default("PENDING")
-  userId    String
-  serviceId String
+  id           String   @id @default(uuid())
+  startTime    DateTime
+  endTime      DateTime
+  status       String   @default("PENDING")
+  userId       String
+  serviceId    String
+  acceptedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  service   Service  @relation(fields: [serviceId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
+
+  service    Service @relation(fields: [serviceId], references: [id])
+  user       User    @relation("CustomerBookings", fields: [userId], references: [id])
+  acceptedBy User?   @relation("StaffAcceptance", fields: [acceptedById], references: [id])
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  title      String
+  message    String
+  type       String // e.g., "APPOINTMENT_ACCEPTED"
+  isRead     Boolean  @default(false)
+  userId     String? // Target user (if specific)
+  businessId String? // Target business (for all staff)
+  createdAt  DateTime @default(now())
+
+  user     User?     @relation(fields: [userId], references: [id])
+  business Business? @relation(fields: [businessId], references: [id])
 }
 
 enum Role {
@@ -76,3 +100,4 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
 }
+

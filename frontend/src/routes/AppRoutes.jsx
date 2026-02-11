@@ -85,12 +85,20 @@ const AppRoutes = () => {
           }
         />
 
-        {/* ========== STAFF ========== */}
         <Route
           path="/staff/dashboard"
           element={
             <ProtectedRoute allowedRoles={["STAFF"]}>
               <StaffDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/staff/appointments"
+          element={
+            <ProtectedRoute allowedRoles={["STAFF"]}>
+              <Appointments />
             </ProtectedRoute>
           }
         />

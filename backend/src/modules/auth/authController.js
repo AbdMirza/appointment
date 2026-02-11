@@ -30,6 +30,7 @@ const generateAccessToken = (user) => {
   return jwt.sign(
     {
       id: user.id,
+      name: user.name,
       role: user.role,
       businessId: user.businessId
     },
@@ -37,6 +38,7 @@ const generateAccessToken = (user) => {
     { expiresIn: ACCESS_TOKEN_EXPIRY }
   );
 };
+
 
 // LOGIN CONTROLLER
 exports.login = async (req, res) => {
@@ -54,6 +56,11 @@ exports.login = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if user account is deleted
+    if (user.deletedAt) {
+      return res.status(403).json({ message: "Account has been deleted" });
     }
 
     const valid = await bcrypt.compare(password, user.password);

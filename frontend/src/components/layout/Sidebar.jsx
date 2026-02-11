@@ -1,8 +1,35 @@
+import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 const Sidebar = () => {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const fetchPendingCount = async () => {
+    try {
+      if (user?.role !== "BUSINESS_ADMIN") return;
+      const res = await fetch("http://localhost:5000/api/appointments/pending-count", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPendingCount(data.count);
+      }
+    } catch (err) {
+      console.error("Error fetching pending count:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (token && user?.role === "BUSINESS_ADMIN") {
+      fetchPendingCount();
+      // Polling for updates every minute
+      const interval = setInterval(fetchPendingCount, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [token, user?.role]);
+
   const baseClass =
     "block px-4 py-2 rounded transition";
 
@@ -19,55 +46,62 @@ const Sidebar = () => {
       </h1>
 
       <nav className="space-y-2">
-        <NavLink
-          to="/admin/dashboard"
-          className={({ isActive }) =>
-            `${baseClass} ${isActive ? activeClass : inactiveClass
-            }`
-          }
-        >
-          Dashboard
-        </NavLink>
+        {user?.role === "BUSINESS_ADMIN" || user?.role === "STAFF" ? (
+          <NavLink
+            to={user.role === "BUSINESS_ADMIN" ? "/admin/dashboard" : "/staff/dashboard"}
+            className={({ isActive }) =>
+              `${baseClass} ${isActive ? activeClass : inactiveClass}`
+            }
+          >
+            Dashboard
+          </NavLink>
+        ) : null}
 
         <NavLink
-          to="/admin/appointments"
+          to={user?.role === "BUSINESS_ADMIN" ? "/admin/appointments" : "/staff/appointments"}
           className={({ isActive }) =>
-            `${baseClass} ${isActive ? activeClass : inactiveClass
-            }`
+            `${baseClass} ${isActive ? activeClass : inactiveClass} flex justify-between items-center`
           }
         >
-          Appointments
+          <span>Appointments</span>
+          {user?.role === "BUSINESS_ADMIN" && pendingCount > 0 && (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm animate-pulse">
+              {pendingCount}
+            </span>
+          )}
         </NavLink>
 
-        <NavLink
-          to="/admin/services"
-          className={({ isActive }) =>
-            `${baseClass} ${isActive ? activeClass : inactiveClass
-            }`
-          }
-        >
-          Services
-        </NavLink>
 
-        <NavLink
-          to="/admin/staff"
-          className={({ isActive }) =>
-            `${baseClass} ${isActive ? activeClass : inactiveClass
-            }`
-          }
-        >
-          Staff
-        </NavLink>
+        {user?.role === "BUSINESS_ADMIN" && (
+          <>
+            <NavLink
+              to="/admin/services"
+              className={({ isActive }) =>
+                `${baseClass} ${isActive ? activeClass : inactiveClass}`
+              }
+            >
+              Services
+            </NavLink>
 
-        <NavLink
-          to="/admin/business-profile"
-          className={({ isActive }) =>
-            `${baseClass} ${isActive ? activeClass : inactiveClass
-            }`
-          }
-        >
-          Business Profile
-        </NavLink>
+            <NavLink
+              to="/admin/staff"
+              className={({ isActive }) =>
+                `${baseClass} ${isActive ? activeClass : inactiveClass}`
+              }
+            >
+              Staff
+            </NavLink>
+
+            <NavLink
+              to="/admin/business-profile"
+              className={({ isActive }) =>
+                `${baseClass} ${isActive ? activeClass : inactiveClass}`
+              }
+            >
+              Business Profile
+            </NavLink>
+          </>
+        )}
       </nav>
 
       <div className="mt-auto pt-6 border-t border-slate-700">

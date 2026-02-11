@@ -43,7 +43,7 @@ const Home = () => {
             </div>
 
             <h1 className="text-5xl sm:text-7xl font-extrabold mb-6 tracking-tight text-slate-900">
-              Welcome back, <br />
+              Welcome  <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
                 {user?.name || "Friend"}
               </span>

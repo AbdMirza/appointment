@@ -1,13 +1,15 @@
 const prisma = require("../../utils/prisma");
 const bcrypt = require("bcryptjs");
-const asyncHandler = require("express-async-handler");
+const { catchAsync, validateRequired } = require("../../utils/controllerHelpers");
+const { successResponse, errorResponse, notFoundResponse, validationErrorResponse } = require("../../utils/responseHelpers");
 
 // Get all staff for the logged-in admin's business
-exports.getStaff = asyncHandler(async (req, res) => {
+exports.getStaff = catchAsync(async (req, res) => {
     const staff = await prisma.user.findMany({
         where: {
             businessId: req.user.businessId,
-            role: "STAFF"
+            role: "STAFF",
+            deletedAt: null
         },
         select: {
             id: true,
@@ -18,15 +20,16 @@ exports.getStaff = asyncHandler(async (req, res) => {
         }
     });
 
-    res.json(staff);
+    return successResponse(res, staff);
 });
 
 // Add a new staff member
-exports.addStaff = asyncHandler(async (req, res) => {
+exports.addStaff = catchAsync(async (req, res) => {
     const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
-        return res.status(400).json({ message: "All fields are required" });
+    const validation = validateRequired(['name', 'email', 'password'], req.body);
+    if (!validation.isValid) {
+        return validationErrorResponse(res, validation.error);
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -34,7 +37,7 @@ exports.addStaff = asyncHandler(async (req, res) => {
     });
 
     if (existingUser) {
-        return res.status(400).json({ message: "Email already exists" });
+        return validationErrorResponse(res, "Email already exists");
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -49,19 +52,18 @@ exports.addStaff = asyncHandler(async (req, res) => {
         }
     });
 
-    res.status(201).json({
-        message: "Staff member added successfully",
+    return successResponse(res, {
         staff: {
             id: newStaff.id,
             name: newStaff.name,
             email: newStaff.email,
             role: newStaff.role
         }
-    });
+    }, "Staff member added successfully", 201);
 });
 
 // Remove a staff member
-exports.removeStaff = asyncHandler(async (req, res) => {
+exports.removeStaff = catchAsync(async (req, res) => {
     const { id } = req.params;
 
     // Ensure the staff belongs to the admin's business
@@ -69,17 +71,18 @@ exports.removeStaff = asyncHandler(async (req, res) => {
         where: {
             id,
             businessId: req.user.businessId,
-            role: "STAFF"
+            role: "STAFF",
+            deletedAt: null
         }
     });
 
     if (!staff) {
-        return res.status(404).json({ message: "Staff member not found in your business" });
+        return notFoundResponse(res, "Staff member not found in your business");
     }
 
     await prisma.user.delete({
         where: { id }
     });
 
-    res.json({ message: "Staff member removed successfully" });
+    return successResponse(res, {}, "Staff member removed successfully");
 });

@@ -1,5 +1,6 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+const { Prisma } = require("@prisma/client");
+const prisma = require("../../utils/prisma");
+
 
 // Get all services for a business (Admin view - includes inactive)
 const getServices = async (req, res) => {
@@ -120,7 +121,9 @@ const createService = async (req, res) => {
                 name,
                 description: description || null,
                 duration: parseInt(duration),
-                price: parseFloat(price) || 0,
+                price: price ? new Prisma.Decimal(price) : 0,
+
+
                 bufferTimeBefore: parseInt(bufferTimeBefore) || 0,
                 bufferTimeAfter: parseInt(bufferTimeAfter) || 0,
                 isActive: isActive !== undefined ? isActive : true,
@@ -169,7 +172,9 @@ const updateService = async (req, res) => {
         if (name !== undefined) updateData.name = name;
         if (description !== undefined) updateData.description = description;
         if (duration !== undefined) updateData.duration = parseInt(duration);
-        if (price !== undefined) updateData.price = parseFloat(price) || 0;
+        if (price !== undefined) updateData.price = new Prisma.Decimal(price || 0);
+
+
         if (bufferTimeBefore !== undefined) updateData.bufferTimeBefore = parseInt(bufferTimeBefore) || 0;
         if (bufferTimeAfter !== undefined) updateData.bufferTimeAfter = parseInt(bufferTimeAfter) || 0;
         if (isActive !== undefined) updateData.isActive = isActive;

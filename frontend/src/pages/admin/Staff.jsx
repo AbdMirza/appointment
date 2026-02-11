@@ -47,9 +47,9 @@ const Staff = () => {
       const data = await res.json();
       if (res.ok) {
         alert("Staff added!");
+        setStaffList([...staffList, data.staff]); // Backend returns { message, staff }
         setNewStaff({ name: "", email: "", password: "" });
         setShowAddForm(false);
-        fetchStaff(); // Refresh list
       } else {
         alert(data.message || "Failed to add staff");
       }
