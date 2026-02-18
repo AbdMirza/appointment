@@ -131,8 +131,9 @@ const Services = () => {
       name: formData.name,
       description: formData.description,
       duration: finalDuration,
-      price: formData.price || "0",
+      price: formData.price ? parseFloat(formData.price).toFixed(2) : "0.00",
       bufferTimeBefore: parseInt(formData.bufferTimeBefore) || 0,
+
       bufferTimeAfter: parseInt(formData.bufferTimeAfter) || 0,
       isActive: formData.isActive,
     };

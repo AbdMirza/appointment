@@ -35,6 +35,10 @@ exports.updateProfile = catchAsync(async (req, res) => {
 // Get all businesses (Public discovery)
 exports.getBusinesses = catchAsync(async (req, res) => {
     const businesses = await prisma.business.findMany({
+        where: {
+            isActive: true,
+            deletedAt: null
+        },
         orderBy: { name: "asc" }
     });
 

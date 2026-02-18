@@ -5,11 +5,13 @@ const {
     updateProfile,
     changePassword,
     deleteAccount,
-    getCustomers,
-    getCustomerById
+    getBusinessCustomers
 } = require("./customerController");
 const { authenticateToken } = require("../../middleware/auth");
 const { authorizeRoles } = require("../../middleware/role");
+
+// Admin route: Get customers who have bookings with this business
+router.get("/", authenticateToken, authorizeRoles("BUSINESS_ADMIN"), getBusinessCustomers);
 
 // Customer self-service routes (require CUSTOMER role)
 router.get("/profile", authenticateToken, authorizeRoles("CUSTOMER"), getProfile);
@@ -17,8 +19,6 @@ router.put("/profile", authenticateToken, authorizeRoles("CUSTOMER"), updateProf
 router.patch("/password", authenticateToken, authorizeRoles("CUSTOMER"), changePassword);
 router.delete("/account", authenticateToken, authorizeRoles("CUSTOMER"), deleteAccount);
 
-// Admin routes - view customers who booked with this business
-router.get("/", authenticateToken, authorizeRoles("BUSINESS_ADMIN"), getCustomers);
-router.get("/:id", authenticateToken, authorizeRoles("BUSINESS_ADMIN"), getCustomerById);
+
 
 module.exports = router;

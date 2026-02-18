@@ -1,8 +1,65 @@
 const prisma = require("../../utils/prisma");
 const bcrypt = require("bcryptjs");
-const { catchAsync, validateRequired, sanitizeUser } = require("../../utils/controllerHelpers");
+
+const { catchAsync } = require("../../utils/controllerHelpers");
 const { successResponse, errorResponse, notFoundResponse, validationErrorResponse } = require("../../utils/responseHelpers");
 
+// crudFactory removed as it is no longer used for self-service methods
+
+/**
+ * Get customers who have bookings with the admin's business
+ * Role: BUSINESS_ADMIN
+ */
+exports.getBusinessCustomers = catchAsync(async (req, res) => {
+    const businessId = req.user?.businessId;
+
+    if (!businessId) {
+        return errorResponse(res, "Business not found for this admin", 400);
+    }
+
+    // Find all customers who have at least one booking with a service from this business
+    const customers = await prisma.user.findMany({
+        where: {
+            role: "CUSTOMER",
+            deletedAt: null,
+            bookings: {
+                some: {
+                    service: {
+                        businessId: businessId
+                    }
+                }
+            }
+        },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            createdAt: true,
+            bookings: {
+                where: {
+                    service: {
+                        businessId: businessId
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+                take: 5,
+                select: {
+                    id: true,
+                    startTime: true,
+                    status: true,
+                    service: {
+                        select: {
+                            name: true
+                        }
+                    }
+                }
+            }
+        },
+        orderBy: { createdAt: "desc" }
+    });
+
+    return successResponse(res, customers);
+});
 /**
  * Get customer's own profile
  * Role: CUSTOMER
@@ -75,9 +132,8 @@ exports.updateProfile = catchAsync(async (req, res) => {
 exports.changePassword = catchAsync(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
-    const validation = validateRequired(['currentPassword', 'newPassword'], req.body);
-    if (!validation.isValid) {
-        return validationErrorResponse(res, validation.error);
+    if (!currentPassword || !newPassword) {
+        return validationErrorResponse(res, "Both current and new passwords are required");
     }
 
     // Validate new password strength
@@ -146,106 +202,5 @@ exports.deleteAccount = catchAsync(async (req, res) => {
     return successResponse(res, {}, "Account deleted successfully");
 });
 
-/**
- * Get all customers who have booked with this business (Admin view)
- * Role: BUSINESS_ADMIN
- */
-exports.getCustomers = catchAsync(async (req, res) => {
-    const businessId = req.user.businessId;
 
-    // Find all customers who have bookings for this business's services
-    const customers = await prisma.user.findMany({
-        where: {
-            role: "CUSTOMER",
-            deletedAt: null,
-            bookings: {
-                some: {
-                    service: {
-                        businessId
-                    }
-                }
-            }
-        },
-        select: {
-            id: true,
-            email: true,
-            name: true,
-            createdAt: true,
-            bookings: {
-                where: {
-                    service: {
-                        businessId
-                    }
-                },
-                select: {
-                    id: true,
-                    startTime: true,
-                    status: true,
-                    service: {
-                        select: {
-                            name: true
-                        }
-                    }
-                },
-                orderBy: { startTime: 'desc' },
-                take: 5 // Show only last 5 bookings per customer
-            }
-        },
-        orderBy: { createdAt: 'desc' }
-    });
 
-    return successResponse(res, customers);
-});
-
-/**
- * Get specific customer details (Admin view)
- * Role: BUSINESS_ADMIN
- */
-exports.getCustomerById = catchAsync(async (req, res) => {
-    const { id } = req.params;
-    const businessId = req.user.businessId;
-
-    const customer = await prisma.user.findFirst({
-        where: {
-            id,
-            role: "CUSTOMER",
-            deletedAt: null,
-            bookings: {
-                some: {
-                    service: {
-                        businessId
-                    }
-                }
-            }
-        },
-        select: {
-            id: true,
-            email: true,
-            name: true,
-            createdAt: true,
-            bookings: {
-                where: {
-                    service: {
-                        businessId
-                    }
-                },
-                include: {
-                    service: {
-                        select: {
-                            name: true,
-                            duration: true,
-                            price: true
-                        }
-                    }
-                },
-                orderBy: { startTime: 'desc' }
-            }
-        }
-    });
-
-    if (!customer) {
-        return notFoundResponse(res, "Customer");
-    }
-
-    return successResponse(res, customer);
-});

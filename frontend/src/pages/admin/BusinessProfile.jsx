@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "../../components/layout/Sidebar";
 import { useAuth } from "../../context/AuthContext";
+import BusinessHoursEditor from "../../components/admin/BusinessHoursEditor";
 
 const BusinessProfile = () => {
     const { token } = useAuth();
@@ -195,6 +196,8 @@ const BusinessProfile = () => {
                             </button>
                         </div>
                     </form>
+
+                    <BusinessHoursEditor token={token} />
                 </div>
             </div>
         </div>

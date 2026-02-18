@@ -21,6 +21,11 @@ model User {
   createdAt     DateTime       @default(now())
 
   // Staff relations
+  services      Service[]      @relation("StaffServices")
+  workingHours  WorkingHours[]
+  timeOff       TimeOff[]
+  isActive      Boolean        @default(true)
+  
   acceptedBookings Booking[]      @relation("StaffAcceptance")
   notifications    Notification[]
 }
@@ -34,7 +39,11 @@ model Business {
 
   users         User[]
   services      Service[]
+  workingHours  WorkingHours[]
+  businessHours BusinessHours[] // Added relation
   notifications Notification[]
+  isActive      Boolean        @default(true)
+  deletedAt     DateTime?
   createdAt     DateTime       @default(now())
 }
 
@@ -49,6 +58,7 @@ model Service {
   isActive         Boolean   @default(true)
   businessId       String
   business         Business  @relation(fields: [businessId], references: [id])
+  staff            User[]    @relation("StaffServices")
   deletedAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -99,5 +109,48 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+model WorkingHours {
+  id          String   @id @default(uuid())
+  dayOfWeek   Int      // 0-6 (Sunday to Saturday)
+  startTime   String   // e.g., "09:00"
+  endTime     String   // e.g., "17:00"
+  breakStart  String?  // e.g., "13:00"
+  breakEnd    String?  // e.g., "14:00"
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+
+  @@unique([userId, dayOfWeek])
+}
+
+model TimeOff {
+  id        String   @id @default(uuid())
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  status    String   @default("PENDING") // PENDING, APPROVED, DECLINED
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+}
+
+model BusinessHours {
+  id          String   @id @default(uuid())
+  dayOfWeek   Int      // 0-6 (Sunday to Saturday)
+  startTime   String   @default("09:00")
+  endTime     String   @default("17:00")
+  isOpen      Boolean  @default(true)
+
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+
+  @@unique([businessId, dayOfWeek])
 }
 

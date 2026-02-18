@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "../../components/layout/Sidebar";
 import { useAuth } from "../../context/AuthContext";
+import StaffScheduleView from "../../components/staff/StaffScheduleView";
 
 const StaffDashboard = () => {
   const { token, user } = useAuth();
@@ -214,115 +215,113 @@ const StaffDashboard = () => {
         </div>
 
         {/* Main Content Area */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-slate-800">Recent Assignments</h2>
-            <button
-              onClick={fetchAppointments}
-              className="text-blue-600 hover:text-blue-700 text-sm font-semibold flex items-center gap-1"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh
-            </button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h2 className="text-xl font-bold text-slate-800">Your Assignments</h2>
+                <button
+                  onClick={fetchAppointments}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-semibold flex items-center gap-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                    <tr>
+                      <th className="px-6 py-4 font-bold">Customer</th>
+                      <th className="px-6 py-4 font-bold">Service</th>
+                      <th className="px-6 py-4 font-bold">Time</th>
+                      <th className="px-6 py-4 font-bold">Status</th>
+                      <th className="px-6 py-4 font-bold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-20 text-center">
+                          <div className="flex flex-col items-center">
+                            <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent mb-3"></div>
+                            <p className="text-slate-500">Loading appointments...</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : appointments.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-20 text-center">
+                          <div className="flex flex-col items-center opacity-40">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xl font-medium">No appointments assigned to you.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      appointments.filter(app => ["CONFIRMED", "ASSIGNED"].includes(app.status)).map((app) => (
+                        <tr key={app.id} className="hover:bg-slate-50 transition-colors group">
+                          <td className="px-6 py-4">
+                            <div>
+                              <p className="font-bold text-slate-800">{app.user?.name}</p>
+                              <p className="text-xs text-slate-500">{app.user?.email}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold ring-1 ring-blue-100">
+                              {app.service?.name}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-700">{formatDate(app.startTime)}</p>
+                              <p className="text-xs text-slate-500">{formatTime(app.startTime)} - {formatTime(app.endTime)}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col gap-1">
+                              <span className={`w-fit px-2 py-1 rounded-lg text-xs font-bold uppercase ${app.status === 'ASSIGNED' ? 'bg-emerald-100 text-emerald-700' :
+                                app.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-slate-100 text-slate-600'
+                                }`}>
+                                {app.status}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex gap-2">
+                              {app.status === "ASSIGNED" && app.acceptedById === user?.id && (
+                                <button
+                                  onClick={() => updateStatus(app.id, "COMPLETED")}
+                                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition shadow-sm"
+                                >
+                                  Mark Completed
+                                </button>
+                              )}
+                              {app.status === "CONFIRMED" && (
+                                <span className="text-xs text-slate-400 italic">Waiting for Assignment</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-4 font-bold">Customer</th>
-                  <th className="px-6 py-4 font-bold">Service</th>
-                  <th className="px-6 py-4 font-bold">Time</th>
-                  <th className="px-6 py-4 font-bold">Status</th>
-                  <th className="px-6 py-4 font-bold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-20 text-center">
-                      <div className="flex flex-col items-center">
-                        <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent mb-3"></div>
-                        <p className="text-slate-500">Loading appointments...</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : appointments.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-20 text-center">
-                      <div className="flex flex-col items-center opacity-40">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <p className="text-xl font-medium">No appointments assigned to you.</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  appointments.filter(app => ["CONFIRMED", "ASSIGNED"].includes(app.status)).map((app) => (
-                    <tr key={app.id} className="hover:bg-slate-50 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-bold text-slate-800">{app.user?.name}</p>
-                          <p className="text-xs text-slate-500">{app.user?.email}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold ring-1 ring-blue-100">
-                          {app.service?.name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-700">{formatDate(app.startTime)}</p>
-                          <p className="text-xs text-slate-500">{formatTime(app.startTime)} - {formatTime(app.endTime)}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          <span className={`w-fit px-2 py-1 rounded-lg text-xs font-bold uppercase ${app.status === 'ASSIGNED' ? 'bg-emerald-100 text-emerald-700' :
-                            app.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
-                              'bg-slate-100 text-slate-600'
-                            }`}>
-                            {app.status}
-                          </span>
-                          {app.acceptedBy && (
-                            <p className="text-[10px] text-slate-500 italic">Provider: {app.acceptedBy.name}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          {app.status === "CONFIRMED" && (
-                            <button
-                              onClick={() => updateStatus(app.id, "ASSIGNED")}
-                              className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-sm"
-                              title="Accept Service"
-                            >
-                              Accept Service
-                            </button>
-                          )}
-                          {app.status === "ASSIGNED" && (
-                            <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              {app.acceptedById === user?.id ? "Your Assignment" : "Being Handled"}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-
-
-                )}
-              </tbody>
-            </table>
+          <div className="lg:col-span-1">
+            <StaffScheduleView userId={user?.id} token={token} />
           </div>
         </div>
+
       </div>
     </div>
   );

@@ -18,12 +18,23 @@ const Home = () => {
             Appointify
           </span>
         </div>
-        <button
-          onClick={logout}
-          className="bg-white text-slate-600 px-5 py-2 rounded-xl font-semibold border border-slate-200 hover:bg-slate-50 hover:text-red-500 hover:border-red-100 transition-all duration-300 shadow-sm"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/customer/profile"
+            className="flex items-center gap-2 text-slate-600 px-4 py-2 rounded-xl font-semibold hover:bg-slate-50 transition-all duration-300"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Profile
+          </Link>
+          <button
+            onClick={logout}
+            className="bg-white text-slate-600 px-5 py-2 rounded-xl font-semibold border border-slate-200 hover:bg-slate-50 hover:text-red-500 hover:border-red-100 transition-all duration-300 shadow-sm"
+          >
+            Logout
+          </button>
+        </div>
       </nav>
 
       {/* Hero Section */}

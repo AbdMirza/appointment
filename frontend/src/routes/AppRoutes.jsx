@@ -13,16 +13,20 @@ import AdminDashboard from "../pages/admin/Dashboard";
 import Appointments from "../pages/admin/Appointments";
 import Services from "../pages/admin/Services";
 import Staff from "../pages/admin/Staff";
+import Customers from "../pages/admin/Customers";
 import BusinessProfile from "../pages/admin/BusinessProfile";
+import LeaveRequests from "../pages/admin/LeaveRequests";
 
 // Staff
 import StaffDashboard from "../pages/staff/StaffDashboard";
+import StaffTimeOff from "../pages/staff/StaffTimeOff";
 
 // Customer
 import CustomerHome from "../pages/customer/Home";
 import Businesses from "../pages/customer/Businesses";
 import Book from "../pages/customer/Book";
 import MyBookings from "../pages/customer/MyBookings";
+import Profile from "../pages/customer/Profile";
 
 const AppRoutes = () => {
   return (
@@ -77,6 +81,15 @@ const AppRoutes = () => {
         />
 
         <Route
+          path="/admin/customers"
+          element={
+            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
+              <Customers />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/admin/business-profile"
           element={
             <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
@@ -99,6 +112,24 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["STAFF"]}>
               <Appointments />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/staff/time-off"
+          element={
+            <ProtectedRoute allowedRoles={["STAFF"]}>
+              <StaffTimeOff />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/leave-requests"
+          element={
+            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
+              <LeaveRequests />
             </ProtectedRoute>
           }
         />
@@ -136,6 +167,15 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["CUSTOMER"]}>
               <MyBookings />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/customer/profile"
+          element={
+            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
+              <Profile />
             </ProtectedRoute>
           }
         />

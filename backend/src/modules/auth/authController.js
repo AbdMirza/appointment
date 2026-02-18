@@ -63,6 +63,11 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: "Account has been deleted" });
     }
 
+    // Check if user account is active
+    if (user.isActive === false) {
+      return res.status(403).json({ message: "Account is inactive. Please contact administrator." });
+    }
+
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       return res.status(401).json({ message: "Wrong password" });
@@ -178,7 +183,14 @@ exports.refresh = asyncHandler(async (req, res) => {
   }
 
   const user = storedToken.user;
+
+  // Check if user account is active
+  if (user.isActive === false) {
+    return res.status(403).json({ message: "Account is inactive. Please contact administrator." });
+  }
+
   const accessToken = generateAccessToken(user);
+
 
   res.json({
     accessToken,

@@ -6,11 +6,27 @@ const Appointments = () => {
   const { token, user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('upcoming');
+  const [staffList, setStaffList] = useState([]);
 
-  const fetchAppointments = async () => {
+  const fetchStaff = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/users?role=STAFF", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStaffList(data.data || data);
+      }
+    } catch (err) {
+      console.error("Error fetching staff:", err);
+    }
+  };
+
+  const fetchAppointments = async (tab = activeTab) => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/appointments/business", {
+      const res = await fetch(`http://localhost:5000/api/appointments/business?tab=${tab}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -26,27 +42,43 @@ const Appointments = () => {
 
   useEffect(() => {
     if (token) {
-      fetchAppointments();
+      fetchAppointments(activeTab);
+      if (user?.role === "BUSINESS_ADMIN") {
+        fetchStaff();
+      }
     }
-  }, [token]);
+  }, [token, activeTab, user?.role]);
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = async (id, status, staffId = null) => {
     try {
+      const body = { status };
+      if (staffId) body.staffId = staffId;
+
       const res = await fetch(`http://localhost:5000/api/appointments/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify(body)
       });
       if (res.ok) {
-        fetchAppointments(); // Refresh
+        fetchAppointments(); // Refresh current tab
+      } else {
+        const data = await res.json();
+        alert(data.message || "Error updating status");
       }
     } catch (err) {
       console.error("Error updating status:", err);
     }
   };
+
+  const handleAssign = (id, staffId) => {
+    if (!staffId) return;
+    updateStatus(id, "ASSIGNED", staffId);
+  };
+
+
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -65,13 +97,19 @@ const Appointments = () => {
     });
   };
 
+  const tabs = [
+    { id: 'upcoming', label: 'Upcoming', color: 'blue' },
+    { id: 'past', label: 'Completed', color: 'green' },
+    { id: 'cancelled', label: 'Cancelled', color: 'red' }
+  ];
+
   return (
     <div className="flex bg-slate-50 min-h-screen">
       <Sidebar />
 
       <div className="flex-1 p-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Appointments</h1>
             <p className="text-slate-500 mt-1">
@@ -80,15 +118,22 @@ const Appointments = () => {
                 : "View and manage your assigned bookings."}
             </p>
           </div>
-          <button
-            onClick={fetchAppointments}
-            className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm hover:bg-slate-50 transition text-slate-600"
-            title="Refresh Data"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 bg-slate-100 p-1.5 rounded-xl w-fit">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${activeTab === tab.id
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Main Table */}
@@ -121,7 +166,7 @@ const Appointments = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <p className="text-xl font-medium">No appointments found.</p>
+                        <p className="text-xl font-medium">No {activeTab} appointments found.</p>
                       </div>
                     </td>
                   </tr>
@@ -157,7 +202,8 @@ const Appointments = () => {
                               app.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
                                 app.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                                   app.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' :
-                                    'bg-slate-100 text-slate-600'
+                                    app.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                                      'bg-slate-100 text-slate-600'
                             }`}>
                             {app.status}
                           </span>
@@ -169,8 +215,8 @@ const Appointments = () => {
                       </td>
 
                       <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          {app.status === "PENDING" && (
+                        <div className="flex flex-wrap gap-2">
+                          {app.status === "PENDING" && user?.role === "BUSINESS_ADMIN" && (
                             <button
                               onClick={() => updateStatus(app.id, "CONFIRMED")}
                               className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-sm"
@@ -178,7 +224,23 @@ const Appointments = () => {
                               Approve
                             </button>
                           )}
-                          {(app.status === "PENDING" || app.status === "CONFIRMED" || app.status === "ASSIGNED") && (
+
+                          {app.status === "CONFIRMED" && user?.role === "BUSINESS_ADMIN" && (
+                            <div className="flex items-center gap-2">
+                              <select
+                                onChange={(e) => handleAssign(app.id, e.target.value)}
+                                className="text-xs p-1.5 border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                                defaultValue=""
+                              >
+                                <option value="" disabled>Assign Staff...</option>
+                                {staffList.map(staff => (
+                                  <option key={staff.id} value={staff.id}>{staff.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          {(app.status === "PENDING" || app.status === "CONFIRMED" || app.status === "ASSIGNED") && user?.role === "BUSINESS_ADMIN" && (
                             <button
                               onClick={() => updateStatus(app.id, "CANCELLED")}
                               className="px-3 py-1 bg-white border border-red-200 text-red-600 rounded-lg text-xs font-bold hover:bg-red-50 transition"
@@ -186,8 +248,13 @@ const Appointments = () => {
                               Cancel
                             </button>
                           )}
+
+                          {user?.role === "STAFF" && (
+                            <span className="text-xs text-slate-400 italic">No actions available</span>
+                          )}
                         </div>
                       </td>
+
 
                     </tr>
                   ))
@@ -202,3 +269,4 @@ const Appointments = () => {
 };
 
 export default Appointments;
+

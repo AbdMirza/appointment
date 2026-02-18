@@ -17,32 +17,60 @@ const Book = () => {
   const businessId = localStorage.getItem("selectedBusinessId");
   const businessName = localStorage.getItem("selectedBusinessName");
 
+  const [businessHours, setBusinessHours] = useState([]);
+
   useEffect(() => {
     if (!businessId) {
       navigate("/customer/businesses");
       return;
     }
 
-    const fetchServices = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(`${API_URL}/services/public/${businessId}`);
-        if (res.ok) {
-          const data = await res.json();
+        setLoading(true);
+        // Fetch Services
+        const servicesRes = await fetch(`${API_URL}/services/public/${businessId}`);
+        if (servicesRes.ok) {
+          const data = await servicesRes.json();
           setServices(data);
         }
+
+        // Fetch Business Hours
+        const hoursRes = await fetch(`${API_URL}/business/public/${businessId}/hours`);
+        if (hoursRes.ok) {
+          const hoursData = await hoursRes.json();
+          setBusinessHours(hoursData);
+        }
       } catch (error) {
-        console.error("Error fetching services:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchServices();
+    fetchData();
   }, [businessId, navigate]);
+
+  const getBusinessHoursForDay = (dateStr) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    const dayOfWeek = date.getDay();
+    return businessHours.find(h => h.dayOfWeek === dayOfWeek);
+  };
+
+  const dayHours = getBusinessHoursForDay(selectedDate);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedService || !selectedDate || !selectedTime) return alert("Fill all fields");
+
+    // Double check hours on frontend
+    if (dayHours) {
+      if (!dayHours.isOpen) return alert("Business is closed on this day");
+      if (selectedTime < dayHours.startTime || selectedTime > dayHours.endTime) {
+        return alert(`Business is only open between ${dayHours.startTime} and ${dayHours.endTime}`);
+      }
+    }
 
     setBooking(true);
     const start = new Date(`${selectedDate}T${selectedTime}`);
@@ -62,6 +90,9 @@ const Book = () => {
       if (res.ok) {
         alert("Booking Confirmed!");
         navigate("/customer/my-bookings");
+      } else {
+        const data = await res.json();
+        alert(data.message || "Booking failed");
       }
     } catch (error) {
       alert("Booking failed");
@@ -71,6 +102,8 @@ const Book = () => {
   };
 
   const today = new Date().toISOString().split('T')[0];
+
+  const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center">
@@ -95,9 +128,26 @@ const Book = () => {
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-10 sm:p-14 text-center">
             <h1 className="text-4xl sm:text-5xl font-extrabold text-white mb-4">Book Appointment</h1>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/20">
-              <span className="text-white/80">Booking at</span>
-              <span className="font-bold">{businessName || "selected business"}</span>
+            <div className="flex flex-col items-center gap-3">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/20">
+                <span className="text-white/80">Booking at</span>
+                <span className="font-bold">{businessName || "selected business"}</span>
+              </div>
+
+              {/* Operating Hours Display */}
+              {businessHours.length > 0 && (
+                <div className="text-white/80 text-sm mt-2 max-w-md bg-black/10 rounded-xl p-3 backdrop-blur-sm">
+                  <p className="font-bold mb-1 opacity-100 text-white">Business Operating Hours:</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    {businessHours.map(h => (
+                      <div key={h.dayOfWeek} className="flex justify-between">
+                        <span className="opacity-70">{DAYS[h.dayOfWeek]}</span>
+                        <span className="font-mono">{h.isOpen ? `${h.startTime}-${h.endTime}` : "Closed"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -105,7 +155,7 @@ const Book = () => {
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4"></div>
-                <p className="text-slate-500 font-medium">Loading available services...</p>
+                <p className="text-slate-500 font-medium">Loading details...</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl mx-auto">
@@ -119,8 +169,8 @@ const Book = () => {
                       <label
                         key={service.id}
                         className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${selectedService === service.id
-                            ? "border-blue-500 bg-blue-50/50 ring-4 ring-blue-500/10"
-                            : "border-slate-100 bg-slate-50/30 hover:border-slate-300"
+                          ? "border-blue-500 bg-blue-50/50 ring-4 ring-blue-500/10"
+                          : "border-slate-100 bg-slate-50/30 hover:border-slate-300"
                           }`}
                       >
                         <input
@@ -171,6 +221,9 @@ const Book = () => {
                         className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-medium"
                         required
                       />
+                      {dayHours && !dayHours.isOpen && (
+                        <p className="text-red-500 text-xs mt-2 font-medium">Business is closed on this day.</p>
+                      )}
                     </div>
 
                     {/* Time Selection */}
@@ -182,9 +235,14 @@ const Book = () => {
                         type="time"
                         value={selectedTime}
                         onChange={(e) => setSelectedTime(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-medium"
+                        className={`w-full bg-slate-50 border p-4 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-medium ${dayHours && (selectedTime < dayHours.startTime || selectedTime > dayHours.endTime) ? "border-red-300" : "border-slate-200"
+                          }`}
                         required
+                        disabled={dayHours && !dayHours.isOpen}
                       />
+                      {dayHours && dayHours.isOpen && (
+                        <p className="text-slate-400 text-xs mt-2">Available: {dayHours.startTime} - {dayHours.endTime}</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -193,7 +251,7 @@ const Book = () => {
                 <div className="pt-8 border-t border-slate-100">
                   <button
                     type="submit"
-                    disabled={booking || !selectedService || !selectedDate || !selectedTime}
+                    disabled={booking || !selectedService || !selectedDate || !selectedTime || (dayHours && (!dayHours.isOpen || selectedTime < dayHours.startTime || selectedTime > dayHours.endTime))}
                     className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-5 rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
                   >
                     {booking ? (
@@ -201,7 +259,7 @@ const Book = () => {
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         <span>Processing Booking...</span>
                       </div>
-                    ) : "Confirm Appointment"}
+                    ) : (dayHours && !dayHours.isOpen ? "Business Closed" : "Confirm Appointment")}
                   </button>
                   <p className="text-center text-slate-400 text-sm mt-4">
                     A confirmation will be added to your bookings immediately.

@@ -7,27 +7,35 @@ const MyBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchBookings = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("http://localhost:5000/api/appointments/my-bookings", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setBookings(data);
-      }
-    } catch (error) {
-      console.error("Error fetching bookings:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch("http://localhost:5000/api/appointments/my-bookings", {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setBookings(data);
+        }
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Error fetching bookings:", error);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (token) {
       fetchBookings();
     }
+
+    return () => controller.abort();
   }, [token]);
 
   const formatDate = (dateString) => {
