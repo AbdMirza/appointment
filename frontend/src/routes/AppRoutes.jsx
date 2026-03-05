@@ -16,6 +16,7 @@ import Staff from "../pages/admin/Staff";
 import Customers from "../pages/admin/Customers";
 import BusinessProfile from "../pages/admin/BusinessProfile";
 import LeaveRequests from "../pages/admin/LeaveRequests";
+import BookingSettings from "../pages/admin/BookingSettings";
 
 // Staff
 import StaffDashboard from "../pages/staff/StaffDashboard";
@@ -130,6 +131,15 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
               <LeaveRequests />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/booking-settings"
+          element={
+            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
+              <BookingSettings />
             </ProtectedRoute>
           }
         />

@@ -7,6 +7,7 @@ const servicesRoutes = require('./modules/services/servicesRoutes');
 const appointmentRoutes = require('./modules/appointments/appointmentRoutes');
 const notificationRoutes = require('./modules/notifications/notificationRoutes');
 const customerRoutes = require('./modules/customers/customerRoutes');
+const availabilityRoutes = require('./modules/availability/availabilityRoutes');
 
 router.get('/ping', (req, res) => {
     res.json({ message: 'pong' });
@@ -20,6 +21,7 @@ router.use('/services', servicesRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/customers', customerRoutes);
+router.use('/availability', availabilityRoutes);
 
 module.exports = router;
 

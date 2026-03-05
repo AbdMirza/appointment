@@ -101,6 +101,13 @@ const Sidebar = () => {
             >
               Leave Requests
             </NavLink>
+
+            <NavLink
+              to="/admin/booking-settings"
+              className={({ isActive }) => `${baseClass} ${isActive ? activeClass : inactiveClass}`}
+            >
+              Booking Settings
+            </NavLink>
           </>
         )}
 

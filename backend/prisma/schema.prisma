@@ -40,11 +40,22 @@ model Business {
   users         User[]
   services      Service[]
   workingHours  WorkingHours[]
-  businessHours BusinessHours[] // Added relation
+  businessHours BusinessHours[]
+  bookingConfig BookingConfig?
   notifications Notification[]
   isActive      Boolean        @default(true)
   deletedAt     DateTime?
   createdAt     DateTime       @default(now())
+}
+
+model BookingConfig {
+  id               String   @id @default(uuid())
+  slotInterval     Int      @default(15)    // step in minutes
+  minBookingNotice Int      @default(120)   // minutes before now
+  maxBookingWindow Int      @default(30)    // days ahead
+
+  businessId       String   @unique
+  business         Business @relation(fields: [businessId], references: [id])
 }
 
 model Service {

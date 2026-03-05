@@ -1,7 +1,7 @@
 const prisma = require("../../utils/prisma");
 const crudFactory = require("../../utils/crudFactory");
 const { catchAsync } = require("../../utils/controllerHelpers");
-const { successResponse, errorResponse, notFoundResponse } = require("../../utils/responseHelpers");
+const { successResponse, errorResponse, notFoundResponse, forbiddenResponse } = require("../../utils/responseHelpers");
 
 // Create the base CRUD operations for Booking
 const bookingCRUD = crudFactory('booking', {
@@ -13,9 +13,9 @@ const bookingCRUD = crudFactory('booking', {
     defaultOrderBy: { startTime: 'desc' }
 });
 
-// Create a new booking
+// Create a new booking (with slot validation + optional staff assignment)
 exports.createBooking = catchAsync(async (req, res) => {
-    const { serviceId, startTime, endTime } = req.body;
+    const { serviceId, startTime, endTime, staffId } = req.body;
     const userId = req.user.id;
 
     const booking = await prisma.$transaction(async (tx) => {
@@ -42,13 +42,29 @@ exports.createBooking = catchAsync(async (req, res) => {
             }
         }
 
+        // 2. Check for conflicting bookings with the same staff
+        if (staffId) {
+            const conflicting = await tx.booking.findFirst({
+                where: {
+                    acceptedById: staffId,
+                    status: { notIn: ['CANCELLED', 'REJECTED'] },
+                    startTime: { lt: new Date(endTime) },
+                    endTime: { gt: start }
+                }
+            });
+            if (conflicting) {
+                throw new Error("This time slot is no longer available. Please pick another slot.");
+            }
+        }
+
         return tx.booking.create({
             data: {
                 userId,
                 serviceId,
                 startTime: start,
                 endTime: new Date(endTime),
-                status: "PENDING",
+                status: staffId ? "ASSIGNED" : "PENDING",
+                ...(staffId && { acceptedById: staffId })
             },
         });
     });
@@ -201,7 +217,11 @@ exports.updateBookingStatus = catchAsync(async (req, res) => {
     const updated = await prisma.booking.update({
         where: { id },
         data: updateData,
-        include: bookingCRUD.include // Reuse factory includes
+        include: {
+            service: true,
+            user: { select: { name: true, email: true } },
+            acceptedBy: { select: { name: true } }
+        }
     });
 
 
