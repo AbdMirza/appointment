@@ -52,6 +52,9 @@ const StaffDashboard = () => {
       
       if (params.startDate) queryParams.append('startDate', params.startDate.toISOString());
       if (params.endDate) queryParams.append('endDate', params.endDate.toISOString());
+      
+      const tabParam = params.tab || (!params.startDate ? 'all-time' : undefined);
+      if (tabParam) queryParams.append('tab', tabParam);
 
       const res = await api.get(`/appointments/business?${queryParams.toString()}`);
       setAppointments(res.data);
@@ -282,19 +285,32 @@ const StaffDashboard = () => {
                             </div>
                             </td>
                         </tr>
-                        ) : appointments.length === 0 ? (
-                        <tr>
-                            <td colSpan="5" className="px-6 py-20 text-center">
-                            <div className="flex flex-col items-center opacity-40">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <p className="text-xl font-medium">No appointments assigned to you.</p>
-                            </div>
-                            </td>
-                        </tr>
-                        ) : (
-                        appointments.filter(app => ["CONFIRMED", "ASSIGNED", "COMPLETED", "NO_SHOW"].includes(app.status)).map((app) => (
+                        ) : (() => {
+                          const startOfToday = new Date();
+                          startOfToday.setHours(0, 0, 0, 0);
+
+                          const filteredApps = appointments.filter(app => {
+                            const isTodayOrFuture = new Date(app.startTime) >= startOfToday;
+                            const isActive = ["CONFIRMED", "ASSIGNED"].includes(app.status);
+                            return (isTodayOrFuture || isActive) && ["CONFIRMED", "ASSIGNED", "COMPLETED", "NO_SHOW"].includes(app.status);
+                          });
+
+                          if (filteredApps.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan="5" className="px-6 py-20 text-center">
+                                  <div className="flex flex-col items-center opacity-40">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <p className="text-xl font-medium">No appointments assigned to you.</p>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return filteredApps.map((app) => (
                             <tr key={app.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => setSelectedAppointment(app)}>
                             <td className="px-6 py-4">
                                 <div>
@@ -322,7 +338,7 @@ const StaffDashboard = () => {
                                         'bg-slate-100 text-slate-600'
                                     }`}>
                                     {app.status}
-                                </span>
+                                  </span>
                                 </div>
                             </td>
                             <td className="px-6 py-4">
@@ -351,8 +367,9 @@ const StaffDashboard = () => {
                                 </div>
                             </td>
                             </tr>
-                        ))
-                        )}
+                          ));
+                        })()
+                        }
                     </tbody>
                     </table>
                 </div>

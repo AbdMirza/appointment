@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 const Sidebar = () => {
-  const { user, token, logout, pendingCount } = useAuth();
+  const { user, logout, pendingCount } = useAuth();
 
   const baseClass = "block px-4 py-2 rounded transition";
   const activeClass = "bg-slate-800 text-white";

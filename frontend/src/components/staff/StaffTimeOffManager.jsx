@@ -24,7 +24,7 @@ const StaffTimeOffManager = ({ staff }) => {
     const handleAdd = async (e) => {
         e.preventDefault();
         try {
-            const res = await api.post(`/users/${staff.id}/time-off`, newTimeOff);
+            await api.post(`/users/${staff.id}/time-off`, newTimeOff);
             setNewTimeOff({ startDate: "", endDate: "", reason: "" });
             fetchTimeOff();
         } catch (err) {

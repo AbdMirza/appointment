@@ -10,7 +10,7 @@ const MONTHS = [
 ];
 
 const Book = () => {
-  const { logout, token, user } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
 
   // State

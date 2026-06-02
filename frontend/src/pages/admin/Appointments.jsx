@@ -8,7 +8,7 @@ import api from "../../api/axios";
 import { useAdminData } from "../../context/AdminDataContext";
 
 const Appointments = () => {
-  const { token, user, pendingCount, setPendingCount } = useAuth();
+  const { user, pendingCount, setPendingCount } = useAuth();
   const { staff: staffList = [], services: serviceList = [], setData } = useAdminData();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);

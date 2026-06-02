@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import api from "../../api/axios";
 
 const AuditLogs = () => {
@@ -7,7 +7,7 @@ const AuditLogs = () => {
   const [filterAction, setFilterAction] = useState("");
   const [filterEntity, setFilterEntity] = useState("");
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -20,11 +20,11 @@ const AuditLogs = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterAction, filterEntity]);
 
   useEffect(() => {
     fetchLogs();
-  }, [filterAction, filterEntity]);
+  }, [fetchLogs]);
 
   const formatDate = (dateStr) =>
     new Date(dateStr).toLocaleString("en-US", {

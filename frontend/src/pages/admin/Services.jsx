@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
+import React, { useState } from "react";
 import { useAdminData } from "../../context/AdminDataContext";
 import api from "../../api/axios";
 
 const Services = () => {
-  const { token } = useAuth();
   const { services, setData } = useAdminData();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all"); // all, active, inactive

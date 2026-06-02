@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
 
 const Businesses = () => {
-    const { logout, token } = useAuth();
+    const { logout } = useAuth();
     const [businesses, setBusinesses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
