@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../api/axios";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -13,19 +14,8 @@ const Login = () => {
 
     // Call backend login API
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      // backend se response aayega
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.message || "Login failed");
-        return;
-      }
+      const res = await api.post("/auth/login", { email, password });
+      const data = res.data;
 
       // Gets data from backend and send to AuthContext (now with both tokens)
       login(data.user, data.accessToken, data.refreshToken);
@@ -46,8 +36,9 @@ const Login = () => {
       }
 
     } catch (err) {
+      const msg = err.response?.data?.message || "Server error";
       console.error("LOGIN ERROR:", err);
-      alert("Server error");
+      alert(msg);
     }
   };
 

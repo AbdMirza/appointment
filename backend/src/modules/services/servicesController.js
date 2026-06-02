@@ -3,6 +3,7 @@ const prisma = require("../../utils/prisma");
 const crudFactory = require("../../utils/crudFactory");
 const { catchAsync } = require("../../utils/controllerHelpers");
 const { successResponse } = require("../../utils/responseHelpers");
+const { logAudit } = require("../../utils/auditLogger");
 
 // Create the base CRUD operations for Service model
 const serviceCRUD = crudFactory('service', {
@@ -22,6 +23,42 @@ const serviceCRUD = crudFactory('service', {
             return "Cannot delete service with future bookings. Please disable it instead.";
         }
         return true;
+    },
+    afterCreate: async (record, req) => {
+        await logAudit({
+            action: 'SERVICE_CREATE',
+            entityType: 'SERVICE',
+            entityId: record.id,
+            actorId: req.user.id,
+            actorRole: req.user.role,
+            businessId: req.user.businessId,
+            details: record
+        });
+    },
+    afterUpdate: async (record, oldRecord, req) => {
+        await logAudit({
+            action: 'SERVICE_UPDATE',
+            entityType: 'SERVICE',
+            entityId: record.id,
+            actorId: req.user.id,
+            actorRole: req.user.role,
+            businessId: req.user.businessId,
+            details: {
+                old: oldRecord,
+                new: record
+            }
+        });
+    },
+    afterDelete: async (record, req) => {
+        await logAudit({
+            action: 'SERVICE_DELETE',
+            entityType: 'SERVICE',
+            entityId: record.id,
+            actorId: req.user.id,
+            actorRole: req.user.role,
+            businessId: req.user.businessId,
+            details: record
+        });
     }
 });
 
@@ -76,6 +113,16 @@ const toggleServiceStatus = catchAsync(async (req, res) => {
     const service = await prisma.service.update({
         where: { id },
         data: { isActive: !existingService.isActive },
+    });
+
+    await logAudit({
+        action: 'SERVICE_TOGGLE',
+        entityType: 'SERVICE',
+        entityId: id,
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        businessId,
+        details: { isActive: service.isActive, previous: existingService.isActive },
     });
 
     return successResponse(res, service);

@@ -4,13 +4,14 @@ import { useAuth } from "../../context/AuthContext";
 import API from "../../api/axios";
 
 const Profile = () => {
-    const { user, logout } = useAuth();
+    const { logout } = useAuth();
     const navigate = useNavigate();
 
     // Profile data
     const [profile, setProfile] = useState({
         name: "",
         email: "",
+        phone: "",
         createdAt: "",
     });
 
@@ -18,6 +19,7 @@ const Profile = () => {
     const [profileForm, setProfileForm] = useState({
         name: "",
         email: "",
+        phone: "",
     });
     const [isEditingProfile, setIsEditingProfile] = useState(false);
 
@@ -51,6 +53,7 @@ const Profile = () => {
             setProfileForm({
                 name: userData?.name || "",
                 email: userData?.email || "",
+                phone: userData?.phone || "",
             });
         } catch (error) {
             setMessage({
@@ -259,6 +262,12 @@ const Profile = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-slate-500 mb-1">
+                                    Phone Number
+                                </label>
+                                <div className="text-lg text-slate-900">{profile?.phone || "Not provided"}</div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-500 mb-1">
                                     Member Since
                                 </label>
                                 <div className="text-lg text-slate-900">
@@ -296,6 +305,20 @@ const Profile = () => {
                                     required
                                 />
                             </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    Phone Number
+                                </label>
+                                <input
+                                    type="tel"
+                                    value={profileForm.phone}
+                                    onChange={(e) =>
+                                        setProfileForm({ ...profileForm, phone: e.target.value })
+                                    }
+                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="e.g. 03001234567"
+                                />
+                            </div>
                             <div className="flex gap-3 pt-2">
                                 <button
                                     type="submit"
@@ -311,6 +334,7 @@ const Profile = () => {
                                         setProfileForm({
                                             name: profile.name,
                                             email: profile.email,
+                                            phone: profile.phone || "",
                                         });
                                     }}
                                     className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-all duration-300"

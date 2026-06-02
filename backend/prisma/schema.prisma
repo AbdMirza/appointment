@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -8,72 +9,73 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  name          String?
-  password      String
-  role          Role
-  businessId    String?
-  business      Business?      @relation(fields: [businessId], references: [id])
-  bookings      Booking[]      @relation("CustomerBookings")
-  refreshTokens RefreshToken[]
-  deletedAt     DateTime?      // Soft delete timestamp
-  createdAt     DateTime       @default(now())
-
-  // Staff relations
-  services      Service[]      @relation("StaffServices")
-  workingHours  WorkingHours[]
-  timeOff       TimeOff[]
-  isActive      Boolean        @default(true)
-  
+  id               String         @id @default(uuid())
+  email            String         @unique
+  password         String
+  role             Role
+  createdAt        DateTime       @default(now())
+  businessId       String?
+  name             String?
+  deletedAt        DateTime?
+  isActive         Boolean        @default(true)
+  phone            String?
   acceptedBookings Booking[]      @relation("StaffAcceptance")
+  bookings         Booking[]      @relation("CustomerBookings")
   notifications    Notification[]
+  refreshTokens    RefreshToken[]
+  timeOff          TimeOff[]
+  business         Business?      @relation(fields: [businessId], references: [id])
+  workingHours     WorkingHours[]
+  services         Service[]      @relation("StaffServices")
 }
 
 model Business {
-  id       String @id @default(uuid())
-  name     String
-  address  String
-  contact  String
-  timezone String
-
-  users         User[]
-  services      Service[]
-  workingHours  WorkingHours[]
-  businessHours BusinessHours[]
-  bookingConfig BookingConfig?
-  notifications Notification[]
-  isActive      Boolean        @default(true)
+  id            String          @id @default(uuid())
+  name          String
+  address       String
+  contact       String
+  timezone      String
+  createdAt     DateTime        @default(now())
   deletedAt     DateTime?
-  createdAt     DateTime       @default(now())
+  isActive      Boolean         @default(true)
+  bookingConfig BookingConfig?
+  businessHours BusinessHours[]
+  notifications Notification[]
+  services      Service[]
+  users         User[]
+  workingHours  WorkingHours[]
+  auditLogs     AuditLog[]
 }
 
 model BookingConfig {
   id               String   @id @default(uuid())
-  slotInterval     Int      @default(15)    // step in minutes
-  minBookingNotice Int      @default(120)   // minutes before now
-  maxBookingWindow Int      @default(30)    // days ahead
-
-  businessId       String   @unique
+  slotInterval     Int      @default(15)
+  minBookingNotice Int      @default(120)
+  maxBookingWindow     Int      @default(30)
+  cancellationDeadline Int      @default(24)
+  rescheduleDeadline   Int      @default(12)
+  lateCancelPolicy     String   @default("ALLOW_LATE_MARK")
+  refundPercentage     Int      @default(50)
+  businessId           String   @unique
   business         Business @relation(fields: [businessId], references: [id])
 }
 
 model Service {
   id               String    @id @default(uuid())
   name             String
-  description      String?
   duration         Int
   price            Decimal   @default(0) @db.Decimal(10, 2)
-  bufferTimeBefore Int       @default(0)
-  bufferTimeAfter  Int       @default(0)
-  isActive         Boolean   @default(true)
-  businessId       String
-  business         Business  @relation(fields: [businessId], references: [id])
-  staff            User[]    @relation("StaffServices")
-  deletedAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  bufferTimeAfter  Int       @default(0)
+  bufferTimeBefore Int       @default(0)
+  businessId       String
+  deletedAt        DateTime?
+  description      String?
+  isActive         Boolean   @default(true)
   bookings         Booking[]
+  business         Business  @relation(fields: [businessId], references: [id])
+  staff            User[]    @relation("StaffServices")
 }
 
 model Booking {
@@ -83,58 +85,77 @@ model Booking {
   status       String   @default("PENDING")
   userId       String
   serviceId    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   acceptedById String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  service    Service @relation(fields: [serviceId], references: [id])
-  user       User    @relation("CustomerBookings", fields: [userId], references: [id])
-  acceptedBy User?   @relation("StaffAcceptance", fields: [acceptedById], references: [id])
+  notes        String?
+  phone        String?
+  acceptedBy   User?    @relation("StaffAcceptance", fields: [acceptedById], references: [id])
+  service      Service  @relation(fields: [serviceId], references: [id])
+  user         User     @relation("CustomerBookings", fields: [userId], references: [id])
+  payment      Payment?
 }
+
+model Payment {
+  id                String   @id @default(uuid())
+  bookingId         String   @unique
+  booking           Booking  @relation(fields: [bookingId], references: [id])
+  stripeSessionId   String?  @unique
+  stripePaymentId   String?  @unique
+  amount            Decimal  @db.Decimal(10, 2)
+  refundAmount      Decimal? @db.Decimal(10, 2) // Actual amount refunded (null if no refund)
+  currency          String   @default("usd")
+  status            String   @default("PENDING") // PENDING, PAID, REFUNDED, PARTIALLY_REFUNDED, FAILED
+  paymentMethod     String?  // stripe, cash, etc.
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  invoice           Invoice?
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  paymentId     String   @unique
+  payment       Payment  @relation(fields: [paymentId], references: [id])
+  invoiceNumber String   @unique
+  pdfUrl        String?
+  issuedAt      DateTime @default(now())
+  createdAt     DateTime @default(now())
+}
+
 
 model Notification {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   title      String
   message    String
-  type       String // e.g., "APPOINTMENT_ACCEPTED"
-  isRead     Boolean  @default(false)
-  userId     String? // Target user (if specific)
-  businessId String? // Target business (for all staff)
-  createdAt  DateTime @default(now())
-
-  user     User?     @relation(fields: [userId], references: [id])
-  business Business? @relation(fields: [businessId], references: [id])
-}
-
-enum Role {
-  BUSINESS_ADMIN
-  STAFF
-  CUSTOMER
+  type       String
+  isRead     Boolean   @default(false)
+  userId     String?
+  businessId String?
+  createdAt  DateTime  @default(now())
+  business   Business? @relation(fields: [businessId], references: [id])
+  user       User?     @relation(fields: [userId], references: [id])
 }
 
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model WorkingHours {
-  id          String   @id @default(uuid())
-  dayOfWeek   Int      // 0-6 (Sunday to Saturday)
-  startTime   String   // e.g., "09:00"
-  endTime     String   // e.g., "17:00"
-  breakStart  String?  // e.g., "13:00"
-  breakEnd    String?  // e.g., "14:00"
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id])
+  id         String   @id @default(uuid())
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+  breakStart String?
+  breakEnd   String?
+  userId     String
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, dayOfWeek])
 }
@@ -144,24 +165,40 @@ model TimeOff {
   startDate DateTime
   endDate   DateTime
   reason    String?
-  status    String   @default("PENDING") // PENDING, APPROVED, DECLINED
-  
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  
   createdAt DateTime @default(now())
+  status    String   @default("PENDING")
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model BusinessHours {
-  id          String   @id @default(uuid())
-  dayOfWeek   Int      // 0-6 (Sunday to Saturday)
-  startTime   String   @default("09:00")
-  endTime     String   @default("17:00")
-  isOpen      Boolean  @default(true)
-
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id])
+  id         String   @id @default(uuid())
+  dayOfWeek  Int
+  startTime  String   @default("09:00")
+  endTime    String   @default("17:00")
+  isOpen     Boolean  @default(true)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
 
   @@unique([businessId, dayOfWeek])
 }
 
+enum Role {
+  BUSINESS_ADMIN
+  STAFF
+  CUSTOMER
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     String   // e.g., SERVICE_CREATE, SERVICE_UPDATE, BOOKING_CANCEL
+  entityType String   // e.g., SERVICE, BOOKING
+  entityId   String
+  actorId    String
+  actorRole  String
+  businessId String
+  details    Json?    // Store old values or metadata
+  createdAt  DateTime @default(now())
+  
+  business   Business @relation(fields: [businessId], references: [id])
+}

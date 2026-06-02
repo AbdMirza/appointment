@@ -4,6 +4,7 @@ const { getProfile, updateProfile, getBusinesses } = require("./businessControll
 const { getBusinessHours, updateBusinessHours } = require("./businessHoursController");
 const { authenticateToken } = require("../../middleware/auth");
 const { authorizeRoles } = require("../../middleware/role");
+const { validateBusinessProfile, validateBusinessHours } = require("../../middleware/validation");
 
 // Public routes
 router.get("/public", getBusinesses);
@@ -14,8 +15,9 @@ router.use(authenticateToken);
 router.use(authorizeRoles("BUSINESS_ADMIN"));
 
 router.get("/profile", getProfile);
-router.put("/profile", updateProfile);
+router.put("/profile", validateBusinessProfile, updateProfile);
 router.get("/hours", getBusinessHours); // Literal route handled first
-router.put("/hours", updateBusinessHours);
+router.put("/hours", validateBusinessHours, updateBusinessHours);
 
 module.exports = router;
+

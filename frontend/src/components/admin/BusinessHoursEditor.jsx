@@ -1,47 +1,36 @@
 import { useState, useEffect } from "react";
+import api from "../../api/axios";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-const BusinessHoursEditor = ({ token }) => {
-    const [hours, setHours] = useState([]);
-    const [loading, setLoading] = useState(true);
+const defaultHours = () =>
+    DAYS.map((_, index) => ({
+        dayOfWeek: index,
+        startTime: "09:00",
+        endTime: "17:00",
+        isOpen: true,
+    }));
+
+const normalizeHours = (data) => {
+    if (!data?.length) return defaultHours();
+    return DAYS.map((_, index) => {
+        const existing = data.find((h) => h.dayOfWeek === index);
+        return existing || { dayOfWeek: index, startTime: "09:00", endTime: "17:00", isOpen: false };
+    });
+};
+
+const BusinessHoursEditor = ({ initialHours, onSaved }) => {
+    const [hours, setHours] = useState(defaultHours());
+    const [loading, setLoading] = useState(!initialHours);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
 
     useEffect(() => {
-        fetchHours();
-    }, [token]);
-
-    const fetchHours = async () => {
-        try {
-            const res = await fetch("http://localhost:5000/api/business/hours", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                // If no hours set, initialize defaults
-                if (data.length === 0) {
-                    setHours(DAYS.map((day, index) => ({
-                        dayOfWeek: index,
-                        startTime: "09:00",
-                        endTime: "17:00",
-                        isOpen: true
-                    })));
-                } else {
-                    // Ensure all days are present
-                    const fullHours = DAYS.map((day, index) => {
-                        const existing = data.find(h => h.dayOfWeek === index);
-                        return existing || { dayOfWeek: index, startTime: "09:00", endTime: "17:00", isOpen: false };
-                    });
-                    setHours(fullHours);
-                }
-            }
-        } catch (err) {
-            console.error("Error fetching hours:", err);
-        } finally {
+        if (initialHours) {
+            setHours(normalizeHours(initialHours));
             setLoading(false);
         }
-    };
+    }, [initialHours]);
 
     const handleToggle = (index) => {
         const newHours = [...hours];
@@ -61,22 +50,13 @@ const BusinessHoursEditor = ({ token }) => {
         setSaving(true);
         setSuccess(false);
         try {
-            const res = await fetch("http://localhost:5000/api/business/hours", {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ hours })
-            });
-            if (res.ok) {
-                setSuccess(true);
-            } else {
-                alert("Failed to save business hours");
-            }
+            const res = await api.put("/business/hours", { hours });
+            const updated = res.data.data || res.data;
+            setSuccess(true);
+            if (onSaved) onSaved(updated);
         } catch (err) {
             console.error("Error saving hours:", err);
-            alert("Error saving hours");
+            alert(err.response?.data?.message || "Error saving hours");
         } finally {
             setSaving(false);
         }
@@ -112,7 +92,6 @@ const BusinessHoursEditor = ({ token }) => {
                         <div className="w-32">
                             <span className="font-semibold text-slate-700">{DAYS[h.dayOfWeek]}</span>
                         </div>
-
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input
                                 type="checkbox"
@@ -125,7 +104,6 @@ const BusinessHoursEditor = ({ token }) => {
                                 {h.isOpen ? "Open" : "Closed"}
                             </span>
                         </label>
-
                         {h.isOpen && (
                             <div className="flex items-center gap-2 flex-1 justify-end">
                                 <input
@@ -141,11 +119,6 @@ const BusinessHoursEditor = ({ token }) => {
                                     onChange={(e) => handleChange(index, "endTime", e.target.value)}
                                     className="p-2 border border-slate-200 rounded-lg text-sm bg-white"
                                 />
-                            </div>
-                        )}
-                        {!h.isOpen && (
-                            <div className="flex-1 text-right">
-                                <span className="text-slate-400 text-sm italic">Not accepting appointments</span>
                             </div>
                         )}
                     </div>

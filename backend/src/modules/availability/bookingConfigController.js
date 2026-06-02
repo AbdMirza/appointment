@@ -1,6 +1,7 @@
 const prisma = require('../../utils/prisma');
 const { catchAsync } = require('../../utils/controllerHelpers');
 const { successResponse, errorResponse } = require('../../utils/responseHelpers');
+const { logAudit } = require('../../utils/auditLogger');
 
 /**
  * GET /api/availability/config
@@ -25,7 +26,10 @@ exports.getBookingConfig = catchAsync(async (req, res) => {
                 businessId,
                 slotInterval: 15,
                 minBookingNotice: 120,
-                maxBookingWindow: 30
+                maxBookingWindow: 30,
+                cancellationDeadline: 24,
+                rescheduleDeadline: 12,
+                lateCancelPolicy: 'BLOCK'
             }
         });
     }
@@ -39,7 +43,14 @@ exports.getBookingConfig = catchAsync(async (req, res) => {
  */
 exports.updateBookingConfig = catchAsync(async (req, res) => {
     const { businessId } = req.user;
-    const { slotInterval, minBookingNotice, maxBookingWindow } = req.body;
+    const { 
+        slotInterval, 
+        minBookingNotice, 
+        maxBookingWindow,
+        cancellationDeadline,
+        rescheduleDeadline,
+        lateCancelPolicy
+    } = req.body;
 
     if (!businessId) {
         return errorResponse(res, 'No business associated with this account', 400);
@@ -55,20 +66,42 @@ exports.updateBookingConfig = catchAsync(async (req, res) => {
     if (maxBookingWindow !== undefined && (maxBookingWindow < 1 || maxBookingWindow > 365)) {
         return errorResponse(res, 'Max booking window must be between 1 and 365 days', 400);
     }
+    if (cancellationDeadline !== undefined && (cancellationDeadline < 0 || cancellationDeadline > 168)) {
+        return errorResponse(res, 'Cancellation deadline must be between 0 and 168 hours (7 days)', 400);
+    }
+    if (rescheduleDeadline !== undefined && (rescheduleDeadline < 0 || rescheduleDeadline > 168)) {
+        return errorResponse(res, 'Reschedule deadline must be between 0 and 168 hours (7 days)', 400);
+    }
 
     const config = await prisma.bookingConfig.upsert({
         where: { businessId },
         update: {
             ...(slotInterval !== undefined && { slotInterval }),
             ...(minBookingNotice !== undefined && { minBookingNotice }),
-            ...(maxBookingWindow !== undefined && { maxBookingWindow })
+            ...(maxBookingWindow !== undefined && { maxBookingWindow }),
+            ...(cancellationDeadline !== undefined && { cancellationDeadline }),
+            ...(rescheduleDeadline !== undefined && { rescheduleDeadline }),
+            ...(lateCancelPolicy !== undefined && { lateCancelPolicy })
         },
         create: {
             businessId,
             slotInterval: slotInterval ?? 15,
             minBookingNotice: minBookingNotice ?? 120,
-            maxBookingWindow: maxBookingWindow ?? 30
+            maxBookingWindow: maxBookingWindow ?? 30,
+            cancellationDeadline: cancellationDeadline ?? 24,
+            rescheduleDeadline: rescheduleDeadline ?? 12,
+            lateCancelPolicy: lateCancelPolicy ?? 'BLOCK'
         }
+    });
+
+    await logAudit({
+        action: 'BOOKING_CONFIG_UPDATE',
+        entityType: 'BUSINESS',
+        entityId: businessId,
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        businessId,
+        details: config,
     });
 
     return successResponse(res, config, 'Booking configuration updated');

@@ -17,6 +17,9 @@ import Customers from "../pages/admin/Customers";
 import BusinessProfile from "../pages/admin/BusinessProfile";
 import LeaveRequests from "../pages/admin/LeaveRequests";
 import BookingSettings from "../pages/admin/BookingSettings";
+import FinanceReport from "../pages/admin/FinanceReport";
+import AuditLogs from "../pages/admin/AuditLogs";
+
 
 // Staff
 import StaffDashboard from "../pages/staff/StaffDashboard";
@@ -28,6 +31,9 @@ import Businesses from "../pages/customer/Businesses";
 import Book from "../pages/customer/Book";
 import MyBookings from "../pages/customer/MyBookings";
 import Profile from "../pages/customer/Profile";
+import PaymentSuccess from "../pages/customer/PaymentSuccess";
+
+import AdminLayout from "../components/layout/AdminLayout";
 
 const AppRoutes = () => {
   return (
@@ -39,66 +45,31 @@ const AppRoutes = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* ========== ADMIN ========== */}
+        {/* ========== ADMIN ROUTES WRAPPED IN ADMINLAYOUT ========== */}
         <Route
-          path="/admin"
-          element={<Navigate to="/admin/dashboard" />}
-        />
-
-        <Route
-          path="/admin/dashboard"
+          path="/admin/*"
           element={
             <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
-              <AdminDashboard />
+              <AdminLayout>
+                <Routes>
+                  <Route path="dashboard" element={<AdminDashboard />} />
+                  <Route path="appointments" element={<Appointments />} />
+                  <Route path="services" element={<Services />} />
+                  <Route path="staff" element={<Staff />} />
+                  <Route path="customers" element={<Customers />} />
+                  <Route path="business-profile" element={<BusinessProfile />} />
+                  <Route path="leave-requests" element={<LeaveRequests />} />
+                  <Route path="booking-settings" element={<BookingSettings />} />
+                  <Route path="finance" element={<FinanceReport />} />
+                  <Route path="audit-logs" element={<AuditLogs />} />
+                  <Route path="*" element={<Navigate to="dashboard" />} />
+                </Routes>
+              </AdminLayout>
             </ProtectedRoute>
           }
         />
 
-        <Route
-          path="/admin/appointments"
-          element={
-            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
-              <Appointments />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin/services"
-          element={
-            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
-              <Services />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin/staff"
-          element={
-            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
-              <Staff />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin/customers"
-          element={
-            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
-              <Customers />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin/business-profile"
-          element={
-            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
-              <BusinessProfile />
-            </ProtectedRoute>
-          }
-        />
-
+        {/* ========== STAFF ========== */}
         <Route
           path="/staff/dashboard"
           element={
@@ -126,23 +97,6 @@ const AppRoutes = () => {
           }
         />
 
-        <Route
-          path="/admin/leave-requests"
-          element={
-            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
-              <LeaveRequests />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin/booking-settings"
-          element={
-            <ProtectedRoute allowedRoles={["BUSINESS_ADMIN"]}>
-              <BookingSettings />
-            </ProtectedRoute>
-          }
-        />
 
         {/* ========== CUSTOMER ========== */}
         <Route
@@ -189,6 +143,15 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/payment-success"
+          element={
+            <ProtectedRoute allowedRoles={["CUSTOMER"]}>
+              <PaymentSuccess />
+            </ProtectedRoute>
+          }
+        />
+
 
         {/* ========== FALLBACK ========== */}
         <Route path="*" element={<Navigate to="/" />} />

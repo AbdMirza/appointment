@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "BookingConfig" ADD COLUMN "cancellationDeadline" INTEGER NOT NULL DEFAULT 24,
+ADD COLUMN "lateCancelPolicy" TEXT NOT NULL DEFAULT 'BLOCK',
+ADD COLUMN "rescheduleDeadline" INTEGER NOT NULL DEFAULT 12;

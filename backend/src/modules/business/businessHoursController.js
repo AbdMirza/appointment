@@ -1,6 +1,7 @@
 const prisma = require("../../utils/prisma");
 const { catchAsync } = require("../../utils/controllerHelpers");
-const { successResponse, errorResponse } = require("../../utils/responseHelpers");
+const { successResponse } = require("../../utils/responseHelpers");
+const { logAudit } = require("../../utils/auditLogger");
 
 // Get business hours for a specific business
 exports.getBusinessHours = catchAsync(async (req, res) => {
@@ -39,6 +40,16 @@ exports.updateBusinessHours = catchAsync(async (req, res) => {
     const updatedHours = await prisma.businessHours.findMany({
         where: { businessId },
         orderBy: { dayOfWeek: 'asc' }
+    });
+
+    await logAudit({
+        action: 'BUSINESS_HOURS_UPDATE',
+        entityType: 'BUSINESS',
+        entityId: businessId,
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        businessId,
+        details: { hours: updatedHours },
     });
 
     return successResponse(res, updatedHours, "Business hours updated successfully");

@@ -1,28 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
+import api from "../../api/axios";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-const StaffScheduleEditor = ({ staff, token }) => {
+const StaffScheduleEditor = ({ staff }) => {
     const [schedule, setSchedule] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
     const fetchSchedule = useCallback(async () => {
         try {
-            const res = await fetch(`http://localhost:5000/api/users/${staff.id}/schedule`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                const list = Array.isArray(data) ? data : (data.data || []);
-                setSchedule(list);
-            }
+            const res = await api.get(`/users/${staff.id}/schedule`);
+            const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+            setSchedule(list);
         } catch (err) {
             console.error("Error fetching schedule:", err);
         } finally {
             setLoading(false);
         }
-    }, [staff.id, token]);
+    }, [staff.id]);
 
     useEffect(() => {
         fetchSchedule();
@@ -44,22 +40,12 @@ const StaffScheduleEditor = ({ staff, token }) => {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const res = await fetch(`http://localhost:5000/api/users/${staff.id}/schedule`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ schedule })
-            });
-            if (res.ok) {
-                alert("Schedule saved successfully");
-            } else {
-                const data = await res.json();
-                alert(data.message || "Failed to save schedule");
-            }
+            await api.put(`/users/${staff.id}/schedule`, { schedule });
+            alert("Schedule saved successfully");
         } catch (err) {
             console.error("Error saving schedule:", err);
+            const errorMsg = err.response?.data?.message || "Failed to save schedule";
+            alert(errorMsg);
         } finally {
             setSaving(false);
         }

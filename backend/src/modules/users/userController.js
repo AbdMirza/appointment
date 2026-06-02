@@ -12,6 +12,7 @@ const userCRUD = crudFactory('user', {
         name: true,
         email: true,
         role: true,
+        phone: true,
         createdAt: true,
         businessId: true, // Useful to see for Staff
         isActive: true,
@@ -42,14 +43,17 @@ exports.getUser = catchAsync(async (req, res) => {
 // Generic Create User (Handles hashing and duplicate check)
 exports.createUser = catchAsync(async (req, res) => {
     const { email, password, role } = req.body;
+    const normalizedEmail = email?.trim().toLowerCase();
 
     const existingUser = await prisma.user.findUnique({
-        where: { email }
+        where: { email: normalizedEmail }
     });
 
     if (existingUser) {
         return validationErrorResponse(res, "Email already exists");
     }
+
+    req.body.email = normalizedEmail;
 
     if (password) {
         req.body.password = await bcrypt.hash(password, 10);
@@ -62,7 +66,11 @@ exports.createUser = catchAsync(async (req, res) => {
 
 // Generic Update User
 exports.updateUser = catchAsync(async (req, res) => {
-    const { password } = req.body;
+    const { password, email } = req.body;
+
+    if (email) {
+        req.body.email = email.trim().toLowerCase();
+    }
 
     // If updating password, hash it
     if (password) {
@@ -117,5 +125,44 @@ exports.assignServices = catchAsync(async (req, res) => {
     });
 
     return successResponse(res, updatedUser, "Services assigned successfully");
+});
+
+// Admin Specific: Get staff with availability status for a specific time slot
+exports.getAvailableStaffForSlot = catchAsync(async (req, res) => {
+    const { startTime, endTime, excludeBookingId } = req.query;
+    const { businessId } = req.user;
+
+    if (!startTime || !endTime) {
+        return validationErrorResponse(res, "startTime and endTime are required");
+    }
+
+    const { isStaffAvailable } = require("../../utils/availabilityUtils");
+
+    // Fetch all active staff for this business
+    const staff = await prisma.user.findMany({
+        where: {
+            businessId,
+            role: "STAFF",
+            isActive: true,
+            deletedAt: null
+        },
+        select: {
+            id: true,
+            name: true,
+            email: true
+        }
+    });
+
+    // Check availability for each staff member
+    const staffWithAvailability = await Promise.all(staff.map(async (s) => {
+        const availability = await isStaffAvailable(s.id, startTime, endTime, excludeBookingId);
+        return {
+            ...s,
+            isAvailable: availability.available,
+            reason: availability.reason
+        };
+    }));
+
+    return successResponse(res, staffWithAvailability);
 });
 

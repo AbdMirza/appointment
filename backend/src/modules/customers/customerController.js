@@ -34,6 +34,7 @@ exports.getBusinessCustomers = catchAsync(async (req, res) => {
             id: true,
             name: true,
             email: true,
+            phone: true,
             createdAt: true,
             bookings: {
                 where: {
@@ -72,6 +73,7 @@ exports.getProfile = catchAsync(async (req, res) => {
             email: true,
             name: true,
             role: true,
+            phone: true,
             createdAt: true
         }
     });
@@ -88,26 +90,28 @@ exports.getProfile = catchAsync(async (req, res) => {
  * Role: CUSTOMER
  */
 exports.updateProfile = catchAsync(async (req, res) => {
-    const { name, email } = req.body;
+    const { name, email, phone } = req.body;
 
     // At least one field must be provided
-    if (!name && !email) {
-        return validationErrorResponse(res, "At least one field (name or email) must be provided");
+    if (!name && !email && !phone) {
+        return validationErrorResponse(res, "At least one field (name, email or phone) must be provided");
     }
 
     const updateData = {};
     if (name) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
     if (email) {
+        const normalizedEmail = email.trim().toLowerCase();
         // Check if email is already taken by another user
         const existingUser = await prisma.user.findUnique({
-            where: { email }
+            where: { email: normalizedEmail }
         });
 
         if (existingUser && existingUser.id !== req.user.id) {
             return validationErrorResponse(res, "Email already in use");
         }
 
-        updateData.email = email;
+        updateData.email = normalizedEmail;
     }
 
     const updatedUser = await prisma.user.update({
@@ -118,6 +122,7 @@ exports.updateProfile = catchAsync(async (req, res) => {
             email: true,
             name: true,
             role: true,
+            phone: true,
             createdAt: true
         }
     });

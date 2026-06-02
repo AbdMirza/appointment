@@ -171,17 +171,44 @@ const crudFactory = (modelName, options = {}) => {
                 select: options.select || defaultSelect
             });
 
+            if (options.afterCreate) {
+                await options.afterCreate(record, req);
+            }
+
             return successResponse(res, record, `${modelName} created successfully`, 201);
         }),
 
         update: catchAsync(async (req, res) => {
             const { id } = req.params;
+            
+            // For audit logging, we might want the old record
+            let oldRecord = null;
+            if (options.afterUpdate) {
+                oldRecord = await prisma[modelName].findUnique({ where: { id } });
+            }
+
+            const businessId = req.user?.businessId;
+            const where = { id };
+            
+            if (useBusinessFilter && businessId) {
+                const businessModels = ['service', 'user', 'notification'];
+                if (businessModels.includes(modelName.toLowerCase())) {
+                    if (!(modelName.toLowerCase() === 'user' && req.user.role === 'CUSTOMER')) {
+                        where[businessIdField] = businessId;
+                    }
+                }
+            }
+
             const record = await prisma[modelName].update({
-                where: { id },
+                where,
                 data: req.body,
                 include: options.include || defaultInclude,
                 select: options.select || defaultSelect
             });
+
+            if (options.afterUpdate) {
+                await options.afterUpdate(record, oldRecord, req);
+            }
 
             return successResponse(res, record, `${modelName} updated successfully`);
         }),
@@ -196,14 +223,36 @@ const crudFactory = (modelName, options = {}) => {
                 }
             }
 
+            // Get record for afterDelete if needed
+            let record = null;
+            if (options.afterDelete) {
+                record = await prisma[modelName].findUnique({ where: { id } });
+            }
+
+            const businessId = req.user?.businessId;
+            const where = { id };
+            
+            if (useBusinessFilter && businessId) {
+                const businessModels = ['service', 'user', 'notification'];
+                if (businessModels.includes(modelName.toLowerCase())) {
+                    if (!(modelName.toLowerCase() === 'user' && req.user.role === 'CUSTOMER')) {
+                        where[businessIdField] = businessId;
+                    }
+                }
+            }
+
             const softDeleteModels = ['user', 'service', 'business'];
             if (useSoftDelete && softDeleteModels.includes(modelName.toLowerCase())) {
                 await prisma[modelName].update({
-                    where: { id },
+                    where,
                     data: { [softDeleteField]: new Date(), isActive: false }
                 });
             } else {
-                await prisma[modelName].delete({ where: { id } });
+                await prisma[modelName].delete({ where });
+            }
+
+            if (options.afterDelete && record) {
+                await options.afterDelete(record, req);
             }
 
             return successResponse(res, {}, `${modelName} deleted successfully`);

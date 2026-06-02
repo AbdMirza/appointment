@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../api/axios";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -14,12 +15,14 @@ export default function Register() {
     email: "",
     password: "",
     role: "CUSTOMER",
+    phone: "",
     // Business fields
     businessName: "",
     businessAddress: "",
     businessContact: "",
     businessTimezone: detectedTimezone
   });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -27,6 +30,8 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
+    setLoading(true);
 
     // Filter payload based on role: only include business fields if BUSINESS_ADMIN
     const payload = {
@@ -36,6 +41,10 @@ export default function Register() {
       role: form.role,
     };
 
+    if (form.role === "CUSTOMER" && form.phone.trim()) {
+      payload.phone = form.phone.trim();
+    }
+
     if (form.role === "BUSINESS_ADMIN") {
       payload.businessName = form.businessName;
       payload.businessAddress = form.businessAddress;
@@ -44,21 +53,8 @@ export default function Register() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        const errorMsg = data.errors
-          ? Object.values(data.errors).flat().join(", ")
-          : data.message;
-        alert(errorMsg || "Registration failed");
-        return;
-      }
+      const res = await api.post("/auth/register", payload);
+      const data = res.data;
 
       login(data.user, data.accessToken, data.refreshToken);
 
@@ -70,8 +66,12 @@ export default function Register() {
         navigate("/customer/home");
       }
     } catch (err) {
-      console.error("REGISTER ERROR:", err);
-      alert("Server error during registration");
+      const errorMsg = err.response?.data?.errors
+        ? Object.values(err.response.data.errors).flat().join(", ")
+        : err.response?.data?.message;
+      alert(errorMsg || "Server error during registration");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -128,10 +128,21 @@ export default function Register() {
               className="w-full p-3 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
             >
               <option value="CUSTOMER">Customer</option>
-              <option value="STAFF">Staff Member</option>
               <option value="BUSINESS_ADMIN">Business Owner / Admin</option>
             </select>
           </div>
+
+          {/* Phone Number - Only for CUSTOMER */}
+          {!isBusinessAdmin && (
+            <input
+              type="tel"
+              name="phone"
+              placeholder="Phone Number (e.g. 03001234567)"
+              className="w-full p-3 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
+              value={form.phone}
+              onChange={handleChange}
+            />
+          )}
 
           {/* Business Details - Only for BUSINESS_ADMIN */}
           {isBusinessAdmin && (
@@ -192,8 +203,13 @@ export default function Register() {
           )}
         </div>
 
-        <button className="w-full bg-blue-600 text-white p-3 rounded mt-6 font-semibold hover:bg-blue-700 transition duration-200">
-          Sign Up
+        <button
+          disabled={loading}
+          className={`w-full text-white p-3 rounded mt-6 font-semibold transition duration-200 ${
+            loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+          }`}
+        >
+          {loading ? "Signing Up..." : "Sign Up"}
         </button>
 
         <p className="text-center text-sm mt-4">

@@ -1,25 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
+import api from "../../api/axios";
 
-const StaffTimeOffManager = ({ staff, token }) => {
+const StaffTimeOffManager = ({ staff }) => {
     const [timeOffList, setTimeOffList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newTimeOff, setNewTimeOff] = useState({ startDate: "", endDate: "", reason: "" });
 
     const fetchTimeOff = useCallback(async () => {
         try {
-            const res = await fetch(`http://localhost:5000/api/users/${staff.id}/time-off`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setTimeOffList(data || []);
-            }
+            const res = await api.get(`/users/${staff.id}/time-off`);
+            setTimeOffList(res.data || []);
         } catch (err) {
             console.error("Error fetching time-off:", err);
         } finally {
             setLoading(false);
         }
-    }, [staff.id, token]);
+    }, [staff.id]);
 
     useEffect(() => {
         fetchTimeOff();
@@ -28,36 +24,21 @@ const StaffTimeOffManager = ({ staff, token }) => {
     const handleAdd = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch(`http://localhost:5000/api/users/${staff.id}/time-off`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify(newTimeOff)
-            });
-            if (res.ok) {
-                setNewTimeOff({ startDate: "", endDate: "", reason: "" });
-                fetchTimeOff();
-            } else {
-                const data = await res.json();
-                alert(data.message || "Failed to add time off");
-            }
+            const res = await api.post(`/users/${staff.id}/time-off`, newTimeOff);
+            setNewTimeOff({ startDate: "", endDate: "", reason: "" });
+            fetchTimeOff();
         } catch (err) {
             console.error("Error adding time off:", err);
+            const errorMsg = err.response?.data?.message || "Failed to add time off";
+            alert(errorMsg);
         }
     };
 
     const handleDelete = async (id) => {
         if (!window.confirm("Delete this time off entry?")) return;
         try {
-            const res = await fetch(`http://localhost:5000/api/users/time-off/${id}`, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.ok) {
-                fetchTimeOff();
-            }
+            await api.delete(`/users/time-off/${id}`);
+            fetchTimeOff();
         } catch (err) {
             console.error("Error deleting time off:", err);
         }

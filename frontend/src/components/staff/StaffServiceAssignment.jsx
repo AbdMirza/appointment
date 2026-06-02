@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import api from "../../api/axios";
 
-const StaffServiceAssignment = ({ staff, services, token, onUpdate }) => {
+const StaffServiceAssignment = ({ staff, services, onUpdate }) => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [saving, setSaving] = useState(false);
 
@@ -19,23 +20,13 @@ const StaffServiceAssignment = ({ staff, services, token, onUpdate }) => {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const res = await fetch(`http://localhost:5000/api/users/${staff.id}/services`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ serviceIds: selectedIds })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert("Services assigned successfully");
-                if (onUpdate) onUpdate();
-            } else {
-                alert(data.message || "Failed to assign services");
-            }
+            await api.patch(`/users/${staff.id}/services`, { serviceIds: selectedIds });
+            alert("Services assigned successfully");
+            if (onUpdate) onUpdate();
         } catch (err) {
             console.error("Error assigning services:", err);
+            const errorMsg = err.response?.data?.message || "Failed to assign services";
+            alert(errorMsg);
         } finally {
             setSaving(false);
         }

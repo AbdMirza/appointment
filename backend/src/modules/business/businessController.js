@@ -1,6 +1,7 @@
 const prisma = require("../../utils/prisma");
 const { catchAsync, validateRequired } = require("../../utils/controllerHelpers");
 const { successResponse, notFoundResponse, validationErrorResponse } = require("../../utils/responseHelpers");
+const { logAudit } = require("../../utils/auditLogger");
 
 // Get business profile for logged-in admin
 exports.getProfile = catchAsync(async (req, res) => {
@@ -27,6 +28,16 @@ exports.updateProfile = catchAsync(async (req, res) => {
     const updatedBusiness = await prisma.business.update({
         where: { id: req.user.businessId },
         data: { name, address, contact, timezone }
+    });
+
+    await logAudit({
+        action: 'BUSINESS_PROFILE_UPDATE',
+        entityType: 'BUSINESS',
+        entityId: req.user.businessId,
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        businessId: req.user.businessId,
+        details: { name, address, contact, timezone },
     });
 
     return successResponse(res, { business: updatedBusiness }, "Business profile updated successfully");

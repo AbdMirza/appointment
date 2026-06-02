@@ -1,6 +1,7 @@
 const prisma = require("../../utils/prisma");
 const { catchAsync } = require("../../utils/controllerHelpers");
-const { validationErrorResponse, successResponse, errorResponse, forbiddenResponse } = require("../../utils/responseHelpers");
+const { validationErrorResponse, successResponse, forbiddenResponse, notFoundResponse } = require("../../utils/responseHelpers");
+const { logAudit } = require("../../utils/auditLogger");
 
 // --- Working Hours ---
 
@@ -142,10 +143,16 @@ exports.getAllStaffTimeOff = catchAsync(async (req, res) => {
 
 exports.updateTimeOffStatus = catchAsync(async (req, res) => {
     const { id } = req.params;
-    const { status } = req.body; // APPROVED, DECLINED
+    const { status } = req.body;
+    const { businessId, id: actorId, role } = req.user;
 
-    if (!['APPROVED', 'DECLINED'].includes(status)) {
-        return validationErrorResponse(res, "Invalid status. Must be APPROVED or DECLINED.");
+    const existing = await prisma.timeOff.findFirst({
+        where: { id, user: { businessId } },
+        include: { user: { select: { name: true, email: true } } },
+    });
+
+    if (!existing) {
+        return notFoundResponse(res, "Time off request");
     }
 
     const updated = await prisma.timeOff.update({
@@ -164,6 +171,16 @@ exports.updateTimeOffStatus = catchAsync(async (req, res) => {
             type: "LEAVE_STATUS_UPDATE",
             userId: updated.userId
         }
+    });
+
+    await logAudit({
+        action: 'LEAVE_REQUEST_STATUS_UPDATE',
+        entityType: 'TIME_OFF',
+        entityId: id,
+        actorId,
+        actorRole: role,
+        businessId,
+        details: { status, staffName: updated.user.name },
     });
 
     return successResponse(res, updated, `Time off ${status.toLowerCase()} successfully`);

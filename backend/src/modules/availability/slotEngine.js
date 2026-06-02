@@ -1,24 +1,57 @@
 const prisma = require('../../utils/prisma');
 
 /**
+ * Helper to construct a UTC Date object representing a specific local date and time in a target timezone.
+ */
+function getUtcDate(year, month, day, hour, minute, timeZone) {
+    const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const partValues = {};
+    parts.forEach(p => { partValues[p.type] = p.value; });
+    
+    let hr = parseInt(partValues.hour);
+    if (hr === 24) hr = 0;
+    
+    const localDate = new Date(Date.UTC(
+        parseInt(partValues.year),
+        parseInt(partValues.month) - 1,
+        parseInt(partValues.day),
+        hr,
+        parseInt(partValues.minute),
+        parseInt(partValues.second)
+    ));
+    
+    const diff = date.getTime() - localDate.getTime();
+    return new Date(date.getTime() + diff);
+}
+
+/**
  * Slot Generation Engine
  * Converts staff schedules, service durations, buffers, existing bookings
  * and time-off into real bookable time slots.
  */
 
-/**
- * Generate available slots for a given business, service, and date range.
- *
- * @param {Object} params
- * @param {string} params.businessId
- * @param {string} params.serviceId
- * @param {string} params.startDate  - ISO date string "YYYY-MM-DD"
- * @param {string} params.endDate    - ISO date string "YYYY-MM-DD"
- * @param {string} [params.staffId]  - optional filter to one staff member
- * @returns {Object} slots grouped by date string
- */
 async function generateAvailableSlots({ businessId, serviceId, startDate, endDate, staffId }) {
     console.log(`[SlotEngine] Generating slots: ${startDate} to ${endDate} for service ${serviceId}`);
+
+    // Load business timezone
+    const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: { timezone: true }
+    });
+    const timezone = business?.timezone || 'UTC';
 
     // 1. Load service details
     const service = await prisma.service.findUnique({
@@ -73,21 +106,18 @@ async function generateAvailableSlots({ businessId, serviceId, startDate, endDat
         staffWorkingHoursMap[wh.userId][wh.dayOfWeek] = wh;
     });
 
-    // 5. Compute date range boundaries
-    // Parse as LOCAL dates (not UTC) to avoid timezone shift
+    // 5. Compute date range boundaries in business timezone
     const [sy, sm, sd] = startDate.split('-').map(Number);
-    const rangeStart = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+    const rangeStart = getUtcDate(sy, sm, sd, 0, 0, timezone);
 
     const [ey, em, ed] = endDate.split('-').map(Number);
-    const rangeEnd = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+    const rangeEnd = getUtcDate(ey, em, ed, 23, 59, timezone);
 
     // Enforce max booking window
     const now = new Date();
-    const maxDate = new Date(now);
-    maxDate.setDate(maxDate.getDate() + maxBookingWindow);
+    const maxDate = new Date(now.getTime() + maxBookingWindow * 24 * 60 * 60 * 1000);
     if (rangeEnd > maxDate) {
         rangeEnd.setTime(maxDate.getTime());
-        rangeEnd.setHours(23, 59, 59, 999);
     }
 
     // 6. Load approved time-off for eligible staff in the date range
@@ -139,25 +169,43 @@ async function generateAvailableSlots({ businessId, serviceId, startDate, endDat
     const current = new Date(rangeStart);
 
     while (current <= rangeEnd) {
-        // Use local date formatting (not UTC) to match frontend date keys
-        const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
-        const dayOfWeek = current.getDay();
+        // Get calendar components in business timezone
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+            hour12: false
+        });
+        const parts = formatter.formatToParts(current);
+        const partValues = {};
+        parts.forEach(p => { partValues[p.type] = p.value; });
+
+        const localYear = parseInt(partValues.year);
+        const localMonth = parseInt(partValues.month);
+        const localDay = parseInt(partValues.day);
+
+        const dateStr = `${localYear}-${String(localMonth).padStart(2, '0')}-${String(localDay).padStart(2, '0')}`;
+        
+        const localDateStr = `${partValues.month}/${partValues.day}/${partValues.year}`;
+        const dayOfWeek = new Date(localDateStr).getDay();
         const daySlotsAll = [];
 
         // Check business open
         const bh = businessHoursMap[dayOfWeek];
         if (bh && !bh.isOpen) {
-            current.setDate(current.getDate() + 1);
+            current.setTime(current.getTime() + 24 * 60 * 60 * 1000);
             continue;
         }
 
         for (const staff of eligibleStaff) {
             // Check time-off
             const offs = staffTimeOffMap[staff.id] || [];
-            const dayStart = new Date(current);
-            dayStart.setHours(0, 0, 0, 0);
-            const dayEnd = new Date(current);
-            dayEnd.setHours(23, 59, 59, 999);
+            const dayStart = getUtcDate(localYear, localMonth, localDay, 0, 0, timezone);
+            const dayEnd = getUtcDate(localYear, localMonth, localDay, 23, 59, timezone);
 
             const hasTimeOff = offs.some(to => to.startDate <= dayEnd && to.endDate >= dayStart);
             if (hasTimeOff) continue;
@@ -169,21 +217,16 @@ async function generateAvailableSlots({ businessId, serviceId, startDate, endDat
             const [whStartH, whStartM] = wh.startTime.split(':').map(Number);
             const [whEndH, whEndM] = wh.endTime.split(':').map(Number);
 
-            const workStart = new Date(current);
-            workStart.setHours(whStartH, whStartM, 0, 0);
-
-            const workEnd = new Date(current);
-            workEnd.setHours(whEndH, whEndM, 0, 0);
+            const workStart = getUtcDate(localYear, localMonth, localDay, whStartH, whStartM, timezone);
+            const workEnd = getUtcDate(localYear, localMonth, localDay, whEndH, whEndM, timezone);
 
             // Break times
             let breakStart = null, breakEnd = null;
             if (wh.breakStart && wh.breakEnd) {
                 const [bsH, bsM] = wh.breakStart.split(':').map(Number);
                 const [beH, beM] = wh.breakEnd.split(':').map(Number);
-                breakStart = new Date(current);
-                breakStart.setHours(bsH, bsM, 0, 0);
-                breakEnd = new Date(current);
-                breakEnd.setHours(beH, beM, 0, 0);
+                breakStart = getUtcDate(localYear, localMonth, localDay, bsH, bsM, timezone);
+                breakEnd = getUtcDate(localYear, localMonth, localDay, beH, beM, timezone);
             }
 
             // Staff bookings for this day
@@ -204,14 +247,14 @@ async function generateAvailableSlots({ businessId, serviceId, startDate, endDat
                 // Check min booking notice
                 const minNoticeTime = new Date(now.getTime() + minBookingNotice * 60000);
                 if (appointmentStart < minNoticeTime) {
-                    slotStart.setMinutes(slotStart.getMinutes() + slotInterval);
+                    slotStart.setTime(slotStart.getTime() + slotInterval * 60000);
                     continue;
                 }
 
                 // Check break overlap
                 if (breakStart && breakEnd) {
                     if (slotStart < breakEnd && slotEnd > breakStart) {
-                        slotStart.setMinutes(slotStart.getMinutes() + slotInterval);
+                        slotStart.setTime(slotStart.getTime() + slotInterval * 60000);
                         continue;
                     }
                 }
@@ -237,7 +280,7 @@ async function generateAvailableSlots({ businessId, serviceId, startDate, endDat
                     // console.log(`[SlotEngine] Conflict for slot ${appointmentStart.toISOString()} (Staff conflict: ${hasConflict}, Unassigned: ${hasUnassignedConflict})`);
                 }
 
-                slotStart.setMinutes(slotStart.getMinutes() + slotInterval);
+                slotStart.setTime(slotStart.getTime() + slotInterval * 60000);
             }
         }
 
@@ -247,7 +290,7 @@ async function generateAvailableSlots({ businessId, serviceId, startDate, endDat
             result[dateStr] = daySlotsAll;
         }
 
-        current.setDate(current.getDate() + 1);
+        current.setTime(current.getTime() + 24 * 60 * 60 * 1000);
     }
 
     return result;

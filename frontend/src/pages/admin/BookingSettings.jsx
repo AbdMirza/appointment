@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../../context/AuthContext";
-
-const API_URL = "http://localhost:5000/api";
+import React, { useState, useEffect } from "react";
+import { useAdminData } from "../../context/AdminDataContext";
+import api from "../../api/axios";
 
 const INTERVAL_OPTIONS = [
     { value: 5, label: "5 minutes" },
@@ -32,33 +31,38 @@ const WINDOW_OPTIONS = [
     { value: 90, label: "90 days" },
 ];
 
+const CANCEL_OPTIONS = [
+    { value: 1, label: "1 hour" },
+    { value: 2, label: "2 hours" },
+    { value: 4, label: "4 hours" },
+    { value: 8, label: "8 hours" },
+    { value: 12, label: "12 hours" },
+    { value: 24, label: "24 hours" },
+    { value: 48, label: "48 hours" },
+    { value: 72, label: "3 days" },
+];
+
+const RESCHEDULE_OPTIONS = [
+    { value: 1, label: "1 hour" },
+    { value: 2, label: "2 hours" },
+    { value: 4, label: "4 hours" },
+    { value: 8, label: "8 hours" },
+    { value: 12, label: "12 hours" },
+    { value: 24, label: "24 hours" },
+    { value: 48, label: "48 hours" },
+];
+
 const BookingSettings = () => {
-    const { token } = useAuth();
+    const { business, setData } = useAdminData();
     const [config, setConfig] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState("");
 
-    const fetchConfig = useCallback(async () => {
-        try {
-            setLoading(true);
-            const res = await fetch(`${API_URL}/availability/config`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setConfig(data.data || data);
-            }
-        } catch (error) {
-            console.error("Error fetching config:", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [token]);
-
     useEffect(() => {
-        fetchConfig();
-    }, [fetchConfig]);
+        if (business?.bookingConfig) {
+            setConfig(business.bookingConfig);
+        }
+    }, [business]);
 
     const handleSave = async () => {
         if (!config) return;
@@ -66,168 +70,141 @@ const BookingSettings = () => {
         setSaving(true);
         setSaveMessage("");
         try {
-            const res = await fetch(`${API_URL}/availability/config`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    slotInterval: config.slotInterval,
-                    minBookingNotice: config.minBookingNotice,
-                    maxBookingWindow: config.maxBookingWindow,
-                }),
+            const res = await api.put("/availability/config", {
+                slotInterval: config.slotInterval,
+                minBookingNotice: config.minBookingNotice,
+                maxBookingWindow: config.maxBookingWindow,
+                cancellationDeadline: config.cancellationDeadline,
+                rescheduleDeadline: config.rescheduleDeadline,
+                lateCancelPolicy: config.lateCancelPolicy,
             });
 
-            if (res.ok) {
-                setSaveMessage("Settings saved successfully!");
-                setTimeout(() => setSaveMessage(""), 3000);
-            } else {
-                const data = await res.json();
-                setSaveMessage(data.message || "Failed to save settings");
-            }
+            const updatedConfig = res.data.data || res.data;
+            
+            // Update global state
+            setData(prev => ({
+                ...prev,
+                business: { ...prev.business, bookingConfig: updatedConfig }
+            }));
+
+            setSaveMessage("Settings saved successfully!");
+            setTimeout(() => setSaveMessage(""), 3000);
         } catch (error) {
-            setSaveMessage("Failed to save settings");
+            setSaveMessage(error.response?.data?.message || "Failed to save settings");
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex-1 p-8 flex items-center justify-center">
-                <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4"></div>
-                    <p className="text-slate-500 font-medium">Loading settings...</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="flex-1 p-6 sm:p-8 overflow-y-auto">
+        <div className="p-8">
             <div className="max-w-2xl mx-auto">
-                {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-extrabold text-slate-800 mb-2">Booking Settings</h1>
                     <p className="text-slate-500">Configure how customers can book appointments with your business.</p>
                 </div>
 
-                {/* Settings Cards */}
                 <div className="space-y-6">
-
                     {/* Slot Interval */}
-                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="font-bold text-slate-800 mb-1">Slot Interval</h3>
-                                <p className="text-sm text-slate-500 mb-4">How frequently time slots are generated. A 15-minute interval means slots at 10:00, 10:15, 10:30, etc.</p>
-                                <select
-                                    value={config?.slotInterval || 15}
-                                    onChange={(e) => setConfig({ ...config, slotInterval: parseInt(e.target.value) })}
-                                    className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
-                                >
-                                    {INTERVAL_OPTIONS.map(opt => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
+                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                        <h3 className="font-bold text-slate-800 mb-1">Slot Interval</h3>
+                        <p className="text-sm text-slate-500 mb-4">How frequently time slots are generated.</p>
+                        <select
+                            value={config?.slotInterval || 15}
+                            onChange={(e) => setConfig({ ...config, slotInterval: parseInt(e.target.value) })}
+                            className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none"
+                        >
+                            {INTERVAL_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Min Booking Notice */}
-                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="font-bold text-slate-800 mb-1">Minimum Booking Notice</h3>
-                                <p className="text-sm text-slate-500 mb-4">How far in advance customers must book. A 2-hour notice means bookings can't be made for the next 2 hours.</p>
-                                <select
-                                    value={config?.minBookingNotice || 120}
-                                    onChange={(e) => setConfig({ ...config, minBookingNotice: parseInt(e.target.value) })}
-                                    className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
-                                >
-                                    {NOTICE_OPTIONS.map(opt => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
+                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                        <h3 className="font-bold text-slate-800 mb-1">Minimum Booking Notice</h3>
+                        <p className="text-sm text-slate-500 mb-4">How far in advance customers must book.</p>
+                        <select
+                            value={config?.minBookingNotice || 120}
+                            onChange={(e) => setConfig({ ...config, minBookingNotice: parseInt(e.target.value) })}
+                            className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none"
+                        >
+                            {NOTICE_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Max Booking Window */}
-                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="font-bold text-slate-800 mb-1">Maximum Booking Window</h3>
-                                <p className="text-sm text-slate-500 mb-4">How far into the future customers can book. A 30-day window means bookings up to 30 days from now.</p>
-                                <select
-                                    value={config?.maxBookingWindow || 30}
-                                    onChange={(e) => setConfig({ ...config, maxBookingWindow: parseInt(e.target.value) })}
-                                    className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
-                                >
-                                    {WINDOW_OPTIONS.map(opt => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                </select>
-                            </div>
+                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                        <h3 className="font-bold text-slate-800 mb-1">Maximum Booking Window</h3>
+                        <p className="text-sm text-slate-500 mb-4">How far into the future customers can book.</p>
+                        <select
+                            value={config?.maxBookingWindow || 30}
+                            onChange={(e) => setConfig({ ...config, maxBookingWindow: parseInt(e.target.value) })}
+                            className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none"
+                        >
+                            {WINDOW_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                            <h3 className="font-bold text-slate-800 mb-1">Cancellation Deadline</h3>
+                            <p className="text-sm text-slate-500 mb-4">Must cancel at least X hours before.</p>
+                            <select
+                                value={config?.cancellationDeadline || 24}
+                                onChange={(e) => setConfig({ ...config, cancellationDeadline: parseInt(e.target.value) })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none"
+                            >
+                                {CANCEL_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                            <h3 className="font-bold text-slate-800 mb-1">Reschedule Deadline</h3>
+                            <p className="text-sm text-slate-500 mb-4">Must reschedule at least X hours before.</p>
+                            <select
+                                value={config?.rescheduleDeadline || 12}
+                                onChange={(e) => setConfig({ ...config, rescheduleDeadline: parseInt(e.target.value) })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none"
+                            >
+                                {RESCHEDULE_OPTIONS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                        <h3 className="font-bold text-slate-800 mb-1">Late Cancellation Behavior</h3>
+                        <p className="text-sm text-slate-500 mb-4">What happens when a customer cancels after the deadline?</p>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <label className={`flex-1 flex items-center p-4 rounded-xl border-2 transition-all cursor-pointer ${config?.lateCancelPolicy === 'BLOCK' ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-slate-50'}`}>
+                                <input type="radio" name="lateCancelPolicy" value="BLOCK" checked={config?.lateCancelPolicy === 'BLOCK'} onChange={(e) => setConfig({ ...config, lateCancelPolicy: e.target.value })} className="hidden" />
+                                <span className="font-bold text-slate-800">Block Cancellation</span>
+                            </label>
+                            <label className={`flex-1 flex items-center p-4 rounded-xl border-2 transition-all cursor-pointer ${config?.lateCancelPolicy === 'ALLOW_LATE_MARK' ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-slate-50'}`}>
+                                <input type="radio" name="lateCancelPolicy" value="ALLOW_LATE_MARK" checked={config?.lateCancelPolicy === 'ALLOW_LATE_MARK'} onChange={(e) => setConfig({ ...config, lateCancelPolicy: e.target.value })} className="hidden" />
+                                <span className="font-bold text-slate-800">Allow & Mark Late</span>
+                            </label>
                         </div>
                     </div>
                 </div>
 
-                {/* Save Button */}
                 <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 px-10 rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+                        className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 px-10 rounded-2xl shadow-xl transition-all disabled:opacity-50"
                     >
-                        {saving ? (
-                            <div className="flex items-center gap-2">
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                Saving...
-                            </div>
-                        ) : (
-                            "Save Settings"
-                        )}
+                        {saving ? "Saving..." : "Save Settings"}
                     </button>
-
-                    {saveMessage && (
-                        <p className={`text-sm font-medium animate-in fade-in ${saveMessage.includes("success") ? "text-green-600" : "text-red-500"
-                            }`}>
-                            {saveMessage}
-                        </p>
-                    )}
-                </div>
-
-                {/* Info Box */}
-                <div className="mt-8 bg-blue-50 border border-blue-100 rounded-2xl p-5">
-                    <div className="flex items-start gap-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                        <div className="text-sm text-blue-800">
-                            <p className="font-semibold mb-1">How slot generation works</p>
-                            <p className="text-blue-700">
-                                Slots are generated based on each staff member's working hours, the service duration (including buffers),
-                                and existing bookings. If a staff member is on approved leave or already booked, their slots won't appear.
-                            </p>
-                        </div>
-                    </div>
+                    {saveMessage && <p className="text-sm font-medium text-green-600">{saveMessage}</p>}
                 </div>
             </div>
         </div>

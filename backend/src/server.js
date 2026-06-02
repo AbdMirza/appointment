@@ -6,10 +6,12 @@ const { PORT } = require("./config/env");
 
 process.on('uncaughtException', (err) => {
     console.error('CRITICAL: Uncaught Exception:', err);
+    process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
 });
 
 // Connect and start synchronously to keep process alive

@@ -1,33 +1,29 @@
 import { useState, useEffect, useCallback } from "react";
+import api from "../../api/axios";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-const StaffScheduleView = ({ userId, token }) => {
+const StaffScheduleView = ({ userId }) => {
     const [schedule, setSchedule] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const fetchSchedule = useCallback(async () => {
         try {
-            const res = await fetch(`http://localhost:5000/api/users/${userId}/schedule`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                const list = Array.isArray(data) ? data : (data.data || []);
-                setSchedule(list);
-            }
+            const res = await api.get(`/users/${userId}/schedule`);
+            const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+            setSchedule(list);
         } catch (err) {
             console.error("Error fetching schedule:", err);
         } finally {
             setLoading(false);
         }
-    }, [userId, token]);
+    }, [userId]);
 
     useEffect(() => {
-        if (userId && token) {
+        if (userId) {
             fetchSchedule();
         }
-    }, [fetchSchedule, userId, token]);
+    }, [fetchSchedule, userId]);
 
     if (loading) return (
         <div className="flex items-center gap-2 p-4 text-slate-500">

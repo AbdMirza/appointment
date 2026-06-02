@@ -1,34 +1,22 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import api from "../api/axios";
 
 const AuthContext = createContext();
-
-const API_BASE = "http://localhost:5000/api";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [refreshToken, setRefreshToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
 
-  // Refresh access token using refresh token
   const refreshAccessToken = useCallback(async () => {
     const storedRefreshToken = localStorage.getItem("refreshToken");
     if (!storedRefreshToken) return null;
 
     try {
-      const res = await fetch(`${API_BASE}/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: storedRefreshToken })
-      });
-
-      if (!res.ok) {
-        // Refresh token invalid or expired, logout
-        logout();
-        return null;
-      }
-
-      const data = await res.json();
+      const res = await api.post("/auth/refresh", { refreshToken: storedRefreshToken });
+      const data = res.data;
       localStorage.setItem("token", data.accessToken);
       localStorage.setItem("user", JSON.stringify(data.user));
       setToken(data.accessToken);
@@ -41,7 +29,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Restore auth on refresh
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
@@ -56,18 +43,16 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Auto-refresh token every 10 minutes (before 15min expiry)
   useEffect(() => {
     if (!refreshToken) return;
 
     const interval = setInterval(() => {
       refreshAccessToken();
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 10 * 60 * 1000);
 
     return () => clearInterval(interval);
   }, [refreshToken, refreshAccessToken]);
 
-  // Login - now accepts both tokens
   const login = (userData, accessToken, newRefreshToken) => {
     localStorage.setItem("user", JSON.stringify(userData));
     localStorage.setItem("token", accessToken);
@@ -76,19 +61,17 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
     setToken(accessToken);
     setRefreshToken(newRefreshToken);
+    if (userData.role !== "BUSINESS_ADMIN") {
+      setPendingCount(0);
+    }
   };
 
-  // Logout - invalidate refresh token on server
   const logout = async () => {
     const storedRefreshToken = localStorage.getItem("refreshToken");
 
     if (storedRefreshToken) {
       try {
-        await fetch(`${API_BASE}/auth/logout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: storedRefreshToken })
-        });
+        await api.post("/auth/logout", { refreshToken: storedRefreshToken });
       } catch (err) {
         console.error("Logout error:", err);
       }
@@ -101,6 +84,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     setRefreshToken(null);
+    setPendingCount(0);
   };
 
   return (
@@ -112,7 +96,9 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         loading,
-        refreshAccessToken
+        refreshAccessToken,
+        pendingCount,
+        setPendingCount,
       }}
     >
       {!loading && children}

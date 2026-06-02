@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-
-const API_URL = "http://localhost:5000/api";
+import api from "../../api/axios";
 
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
@@ -11,7 +10,7 @@ const MONTHS = [
 ];
 
 const Book = () => {
-  const { logout, token } = useAuth();
+  const { logout, token, user } = useAuth();
   const navigate = useNavigate();
 
   // State
@@ -25,6 +24,10 @@ const Book = () => {
   const [booking, setBooking] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [businessHours, setBusinessHours] = useState([]);
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [notes, setNotes] = useState("");
+  const [paymentMode, setPaymentMode] = useState("PAY_LATER");
+
 
   const businessId = localStorage.getItem("selectedBusinessId");
   const businessName = localStorage.getItem("selectedBusinessName");
@@ -40,18 +43,12 @@ const Book = () => {
       try {
         setLoading(true);
         const [servicesRes, hoursRes] = await Promise.all([
-          fetch(`${API_URL}/services/public/${businessId}`),
-          fetch(`${API_URL}/business/public/${businessId}/hours`)
+          api.get(`/services/public/${businessId}`),
+          api.get(`/business/public/${businessId}/hours`)
         ]);
 
-        if (servicesRes.ok) {
-          const data = await servicesRes.json();
-          setServices(data);
-        }
-        if (hoursRes.ok) {
-          const hoursData = await hoursRes.json();
-          setBusinessHours(hoursData);
-        }
+        setServices(servicesRes.data);
+        setBusinessHours(hoursRes.data);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -67,25 +64,19 @@ const Book = () => {
     if (!serviceId || !date || !businessId) return;
 
     const dateStr = formatDate(date);
-    console.log(`[Book.jsx] Fetching slots for ${dateStr}, service ${serviceId}`);
-
     setSlotsLoading(true);
     // Important: Clear current slots for THIS date so we don't show old data while loading
     setSlots(prev => ({ ...prev, [dateStr]: [] }));
 
     try {
-      const res = await fetch(
-        `${API_URL}/availability/slots?businessId=${businessId}&serviceId=${serviceId}&startDate=${dateStr}&endDate=${dateStr}`,
+      const res = await api.get(
+        `/availability/slots?businessId=${businessId}&serviceId=${serviceId}&startDate=${dateStr}&endDate=${dateStr}`,
         { signal }
       );
-      if (res.ok) {
-        const data = await res.json();
-        console.log(`[Book.jsx] Received slots for ${dateStr}:`, data);
-        setSlots(data.data || data || {});
-      }
+      setSlots(res.data.data || res.data || {});
     } catch (error) {
-      if (error.name === "AbortError") {
-        console.log(`[Book.jsx] Fetch aborted for ${dateStr}`);
+      if (error.name === "AbortError" || error.message === "canceled" || error.code === "ERR_CANCELED") {
+        // Ignored
       } else {
         console.error("Error fetching slots:", error);
       }
@@ -188,7 +179,6 @@ const Book = () => {
   });
 
   const staffEntries = Object.entries(staffMap);
-  const hasMultipleStaff = staffEntries.length > 1;
 
   // Handle booking
   const handleBook = async () => {
@@ -196,33 +186,34 @@ const Book = () => {
 
     setBooking(true);
     try {
-      const res = await fetch(`${API_URL}/appointments/book`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          serviceId: selectedService,
-          startTime: selectedSlot.startTime,
-          endTime: selectedSlot.endTime,
-          staffId: selectedSlot.staffId
-        }),
+      const res = await api.post("/appointments/book", {
+        serviceId: selectedService,
+        startTime: selectedSlot.startTime,
+        endTime: selectedSlot.endTime,
+        staffId: selectedSlot.staffId,
+        phone: phone.trim(),
+        notes: notes.trim() || undefined,
+        paymentMode: selectedServiceData?.price > 0 ? paymentMode : "PAY_LATER"
       });
 
-      if (res.ok) {
+      const data = res.data;
+      
+      if (data.checkoutUrl) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.checkoutUrl;
+      } else {
         alert("Booking Confirmed!");
         navigate("/customer/my-bookings");
-      } else {
-        const data = await res.json();
-        alert(data.message || "Booking failed. The slot may no longer be available.");
       }
     } catch (error) {
-      alert("Booking failed");
+      console.error("Booking Error:", error);
+      const errorMsg = error.response?.data?.message || "Booking failed. The slot may no longer be available.";
+      alert(errorMsg);
     } finally {
       setBooking(false);
     }
   };
+
 
   const selectedServiceData = services.find(s => s.id === selectedService);
 
@@ -431,14 +422,15 @@ const Book = () => {
                         <div className="space-y-6">
                           {staffEntries.map(([staffId, staffData]) => (
                             <div key={staffId}>
-                              {hasMultipleStaff && (
-                                <div className="flex items-center gap-2 mb-3">
-                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
-                                    {staffData.name?.charAt(0)?.toUpperCase() || "S"}
-                                  </div>
-                                  <span className="font-semibold text-slate-700">{staffData.name}</span>
+                              <div className="flex items-center gap-3 mb-4 bg-white/50 p-3 rounded-2xl border border-slate-100/50 shadow-sm">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-blue-500/20">
+                                  {staffData.name?.charAt(0)?.toUpperCase() || "S"}
                                 </div>
-                              )}
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-slate-800 leading-tight">{staffData.name}</span>
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Team Member</span>
+                                </div>
+                              </div>
                               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                                 {staffData.slots.map((slot, idx) => {
                                   const isSelected = selectedSlot &&
@@ -469,10 +461,100 @@ const Book = () => {
                   </div>
                 )}
 
-                {/* ============ STEP 4: CONFIRM ============ */}
+                {/* ============ STEP 4: YOUR DETAILS ============ */}
                 {selectedSlot && (
                   <div className="animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center gap-3 mb-5">
+                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm">4</span>
+                      <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Your Details</h2>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-2xl border border-slate-100 p-6 space-y-5">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Phone Number <span className="text-red-500">*</span></label>
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="e.g. 03001234567"
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-800 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Notes / Special Requests <span className="text-slate-400 font-normal">(optional)</span></label>
+                        <textarea
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          placeholder="Any special requirements or notes for the staff..."
+                          rows={3}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-800 resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ============ STEP 5: PAYMENT MODE ============ */}
+                {selectedSlot && phone.trim() && selectedServiceData?.price > 0 && (
+                  <div className="animate-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center gap-3 mb-5">
+                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm">5</span>
+                      <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Payment Method</h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <button
+                        onClick={() => setPaymentMode("PAY_NOW")}
+                        className={`p-6 rounded-2xl border-2 text-left transition-all duration-300 flex flex-col gap-2 ${paymentMode === "PAY_NOW"
+                          ? "border-blue-500 bg-blue-50/60 ring-4 ring-blue-500/10 shadow-lg"
+                          : "border-slate-100 bg-slate-50/30 hover:border-slate-300"
+                          }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-800 text-lg">Pay Now</span>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMode === "PAY_NOW" ? "border-blue-500 bg-blue-500" : "border-slate-300"}`}>
+                            {paymentMode === "PAY_NOW" && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                          </div>
+                        </div>
+                        <p className="text-slate-500 text-sm">Pay securely with card via Stripe and get immediate confirmation.</p>
+                        <div className="mt-2 flex gap-2">
+                           <div className="bg-white/80 px-2 py-1 rounded border border-slate-100 text-[10px] font-bold text-slate-400">VISA</div>
+                           <div className="bg-white/80 px-2 py-1 rounded border border-slate-100 text-[10px] font-bold text-slate-400">MASTERCARD</div>
+                           <div className="bg-white/80 px-2 py-1 rounded border border-slate-100 text-[10px] font-bold text-slate-400">STRIPE</div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => setPaymentMode("PAY_LATER")}
+                        className={`p-6 rounded-2xl border-2 text-left transition-all duration-300 flex flex-col gap-2 ${paymentMode === "PAY_LATER"
+                          ? "border-blue-500 bg-blue-50/60 ring-4 ring-blue-500/10 shadow-lg"
+                          : "border-slate-100 bg-slate-50/30 hover:border-slate-300"
+                          }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-800 text-lg">Pay at Business</span>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMode === "PAY_LATER" ? "border-blue-500 bg-blue-500" : "border-slate-300"}`}>
+                            {paymentMode === "PAY_LATER" && <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                          </div>
+                        </div>
+                        <p className="text-slate-500 text-sm">Confirm your booking now and pay when you arrive for your appointment.</p>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ============ STEP 6: CONFIRM ============ */}
+                {selectedSlot && phone.trim() && (
+                  <div className="animate-in slide-in-from-bottom-4 duration-500">
                     {/* Booking Summary */}
+                    <div className="flex items-center gap-3 mb-5">
+                      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm">
+                        {selectedServiceData?.price > 0 ? "6" : "5"}
+                      </span>
+                      <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider">Confirm Booking</h2>
+                    </div>
+
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-6 mb-6">
                       <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>
@@ -499,6 +581,16 @@ const Book = () => {
                           <span className="text-slate-500">With</span>
                           <span className="font-semibold text-slate-800">{selectedSlot.staffName}</span>
                         </div>
+                        <div className="flex justify-between sm:flex-col">
+                          <span className="text-slate-500">Phone</span>
+                          <span className="font-semibold text-slate-800">{phone}</span>
+                        </div>
+                        {notes.trim() && (
+                          <div className="flex justify-between sm:flex-col sm:col-span-2">
+                            <span className="text-slate-500">Notes</span>
+                            <span className="font-semibold text-slate-800">{notes}</span>
+                          </div>
+                        )}
                         {selectedServiceData?.price > 0 && (
                           <div className="flex justify-between sm:flex-col">
                             <span className="text-slate-500">Price</span>

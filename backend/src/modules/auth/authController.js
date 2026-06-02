@@ -49,8 +49,10 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: "Email and password required" });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
       include: { business: true }
     });
 
@@ -84,6 +86,7 @@ exports.login = async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
+        phone: user.phone,
         businessId: user.businessId,
         businessName: user.business?.name
       }
@@ -97,10 +100,12 @@ exports.login = async (req, res) => {
 
 // REGISTER CONTROLLER
 exports.register = asyncHandler(async (req, res) => {
-  const { name, email, password, role, businessName, businessAddress, businessContact, businessTimezone } = req.body;
+  const { name, email, password, role, phone, businessName, businessAddress, businessContact, businessTimezone } = req.body;
+
+  const normalizedEmail = email.trim().toLowerCase();
 
   const existingUser = await prisma.user.findUnique({
-    where: { email }
+    where: { email: normalizedEmail }
   });
 
   if (existingUser) {
@@ -126,10 +131,11 @@ exports.register = asyncHandler(async (req, res) => {
 
     const newUser = await tx.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         name,
         password: hashedPassword,
         role: role,
+        phone: role === "CUSTOMER" ? (phone || null) : null,
         businessId: businessId
       },
       include: { business: true }
@@ -152,6 +158,7 @@ exports.register = asyncHandler(async (req, res) => {
       email: newUser.email,
       name: newUser.name,
       role: newUser.role,
+      phone: newUser.phone,
       businessId: newUser.businessId,
       businessName: newUser.business?.name
     }
@@ -199,6 +206,7 @@ exports.refresh = asyncHandler(async (req, res) => {
       email: user.email,
       name: user.name,
       role: user.role,
+      phone: user.phone,
       businessId: user.businessId,
       businessName: user.business?.name
     }

@@ -3,31 +3,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 const Sidebar = () => {
-  const { user, token, logout } = useAuth();
-  const [pendingCount, setPendingCount] = useState(0);
-
-  const fetchPendingCount = useCallback(async () => {
-    try {
-      if (user?.role !== "BUSINESS_ADMIN") return;
-      const res = await fetch("http://localhost:5000/api/appointments/pending-count", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setPendingCount(data.count);
-      }
-    } catch (err) {
-      console.error("Error fetching pending count:", err);
-    }
-  }, [user?.role, token]);
-
-  useEffect(() => {
-    if (token && user?.role === "BUSINESS_ADMIN") {
-      fetchPendingCount();
-      const interval = setInterval(fetchPendingCount, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [token, user?.role, fetchPendingCount]);
+  const { user, token, logout, pendingCount } = useAuth();
 
   const baseClass = "block px-4 py-2 rounded transition";
   const activeClass = "bg-slate-800 text-white";
@@ -108,6 +84,21 @@ const Sidebar = () => {
             >
               Booking Settings
             </NavLink>
+
+            <NavLink
+              to="/admin/finance"
+              className={({ isActive }) => `${baseClass} ${isActive ? activeClass : inactiveClass}`}
+            >
+              Finance Report
+            </NavLink>
+
+            <NavLink
+              to="/admin/audit-logs"
+              className={({ isActive }) => `${baseClass} ${isActive ? activeClass : inactiveClass}`}
+            >
+              Audit Logs
+            </NavLink>
+
           </>
         )}
 

@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-
-const API_URL = "http://localhost:5000/api";
+import api from "../../api/axios";
 
 const Businesses = () => {
     const { logout, token } = useAuth();
@@ -14,11 +13,8 @@ const Businesses = () => {
     useEffect(() => {
         const fetchBusinesses = async () => {
             try {
-                const res = await fetch(`${API_URL}/business/public`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setBusinesses(data);
-                }
+                const res = await api.get("/business/public");
+                setBusinesses(res.data);
             } catch (error) {
                 console.error("Error fetching businesses:", error);
             } finally {
