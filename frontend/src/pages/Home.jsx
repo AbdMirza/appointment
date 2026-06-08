@@ -2,8 +2,16 @@ import { Link } from "react-router-dom";
 
 const Home = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-700">
-      <div className="bg-white p-10 rounded-2xl shadow-2xl text-center w-[400px]">
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{
+        backgroundImage: "linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('/frontimg.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="bg-white/95 backdrop-blur-sm p-10 rounded-2xl shadow-2xl text-center w-[400px]">
         <h1 className="text-3xl font-bold text-slate-800 mb-4">
           Appointment Booking System
         </h1>
